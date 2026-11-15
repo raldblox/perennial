@@ -33,6 +33,11 @@ contract Handler is Test {
     uint256 public beneficiaryBalanceAtLastSuccession;
     bool public anySucceeded;
     uint256 public principalReturned;
+    /// Principal last seen for each open position, and whether it ever went down.
+    mapping(uint256 => uint256) public lastPrincipal;
+    bool public principalShrank;
+    /// How many times each position's principal grew (a deposit or a compounding).
+    mapping(uint256 => uint256) public growths;
 
     constructor(
         PerennialVault vault_,
@@ -59,11 +64,37 @@ contract Handler is Test {
         view
         returns (bytes memory)
     {
-        uint256 nonce = vault.position(id).nonce;
-        return pqc.sign(secret, vault.actionMessage(id, action, nonce, deadline, 0));
+        return _signWith(secret, id, action, deadline, 0);
     }
 
-    function open(uint256 amount, uint256 payout, bool closable) external {
+    function _signWith(
+        bytes32 secret,
+        uint256 id,
+        PerennialVault.Action action,
+        uint256 deadline,
+        bytes32 paramsHash
+    ) internal view returns (bytes memory) {
+        uint256 nonce = vault.position(id).nonce;
+        return pqc.sign(secret, vault.actionMessage(id, action, nonce, deadline, paramsHash));
+    }
+
+    /// @dev After every action: an open position's principal may only grow.
+    modifier tracksPrincipal(uint256 seed) {
+        _;
+        uint256 count = vault.positionCount();
+        for (uint256 id = 1; id <= count; ++id) {
+            PerennialVault.Position memory pos = vault.position(id);
+            if (pos.closed) continue;
+            if (pos.principal < lastPrincipal[id]) principalShrank = true;
+            if (pos.principal > lastPrincipal[id]) growths[id] += 1;
+            lastPrincipal[id] = pos.principal;
+        }
+    }
+
+    function open(uint256 amount, uint256 payout, bool closable, uint256 cap)
+        external
+        tracksPrincipal(0)
+    {
         if (vault.positionCount() >= MAX_POSITIONS) return;
         amount = bound(amount, 1, 500_000 * USD);
         PerennialVault.Heir[] memory list = new PerennialVault.Heir[](2);
@@ -82,7 +113,9 @@ contract Handler is Test {
                 checkInPeriod: 90 days,
                 gracePeriod: 30 days,
                 ownerCanClose: closable,
-                heirs: list
+                heirs: list,
+                // A third of positions never compound, the rest keep a cap from zero up.
+                bufferCap: cap % 3 == 0 ? type(uint256).max : bound(cap, 0, 2_000 * USD)
             })
         );
         vm.stopPrank();
@@ -90,7 +123,7 @@ contract Handler is Test {
         deposits[id] = 1;
     }
 
-    function topUp(uint256 seed, uint256 amount) external {
+    function topUp(uint256 seed, uint256 amount) external tracksPrincipal(seed) {
         uint256 id = _pick(seed);
         if (id == 0 || vault.position(id).closed) return;
         amount = bound(amount, 1, 100_000 * USD);
@@ -107,13 +140,13 @@ contract Handler is Test {
         skip(bound(secondsForward, 1 hours, 100 days));
     }
 
-    function harvest(uint256 seed) external {
+    function harvest(uint256 seed) external tracksPrincipal(seed) {
         uint256 id = _pick(seed);
         if (id == 0) return;
         vault.harvest(id);
     }
 
-    function claim(uint256 seed) external {
+    function claim(uint256 seed) external tracksPrincipal(seed) {
         uint256 id = _pick(seed);
         if (id == 0) return;
         uint256 deadline = block.timestamp + 1;
@@ -121,7 +154,7 @@ contract Handler is Test {
         vault.claim(id, deadline, signature);
     }
 
-    function checkIn(uint256 seed) external {
+    function checkIn(uint256 seed) external tracksPrincipal(seed) {
         uint256 id = _pick(seed);
         if (id == 0) return;
         uint256 deadline = block.timestamp + 1;
@@ -130,7 +163,7 @@ contract Handler is Test {
         vault.checkIn(id, deadline, signature);
     }
 
-    function triggerSuccession(uint256 seed) external {
+    function triggerSuccession(uint256 seed) external tracksPrincipal(seed) {
         uint256 id = _pick(seed);
         if (id == 0) return;
         vault.triggerSuccession(id);
@@ -138,13 +171,13 @@ contract Handler is Test {
         anySucceeded = true;
     }
 
-    function distribute(uint256 seed) external {
+    function distribute(uint256 seed) external tracksPrincipal(seed) {
         uint256 id = _pick(seed);
         if (id == 0) return;
         vault.distribute(id);
     }
 
-    function close(uint256 seed) external {
+    function close(uint256 seed) external tracksPrincipal(seed) {
         uint256 id = _pick(seed);
         if (id == 0) return;
         uint256 deadline = block.timestamp + 1;
@@ -170,16 +203,27 @@ contract InvariantsTest is VaultFixture {
         targetContract(address(handler));
     }
 
-    /// The principal of an open position never shrinks, and the shares held for it cover
-    /// it. A deposit can round down by at most one share, so the cover may be short by one
-    /// share per deposit until the next harvest makes it up out of yield.
+    /// The principal of an open position never shrinks and never falls below what its
+    /// owners deposited; it grows only by deposits and by compounding. The shares held for
+    /// it cover it, short by at most one share per deposit or compounding (each rounds down
+    /// by at most one share) until the next harvest makes that up out of yield.
     function invariant_principalIsNeverSpent() public view {
+        assertFalse(handler.principalShrank());
         uint256 count = vault.positionCount();
         for (uint256 id = 1; id <= count; ++id) {
             PerennialVault.Position memory pos = vault.position(id);
             if (pos.closed) continue;
-            assertEq(pos.principal, handler.deposited(id));
-            assertGe(pos.shares + handler.deposits(id), source.previewWithdraw(pos.principal));
+            assertGe(pos.principal, handler.deposited(id));
+            assertGe(pos.shares + handler.growths(id), source.previewWithdraw(pos.principal));
+        }
+    }
+
+    /// After any action the buffer holds at most its cap; the rest has been compounded.
+    function invariant_bufferNeverExceedsItsCap() public view {
+        uint256 count = vault.positionCount();
+        for (uint256 id = 1; id <= count; ++id) {
+            PerennialVault.Position memory pos = vault.position(id);
+            assertLe(pos.buffer, pos.bufferCap);
         }
     }
 

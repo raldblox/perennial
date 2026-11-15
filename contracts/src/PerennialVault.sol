@@ -8,11 +8,12 @@ import {IYieldSource} from "./interfaces/IYieldSource.sol";
 import {PQCAuth} from "./libraries/PQCAuth.sol";
 
 /// @title PerennialVault
-/// @notice A pension that pays out only what its principal earns.
+/// @notice An endowment that pays out only what its principal earns.
 /// @dev A position's principal is deposited into the yield source and tracked as shares.
-///      Yield is harvested into the position's buffer, and payouts are made from the
-///      buffer only. The vault has one asset and one yield source, both fixed at
-///      deployment, and no privileged role: nothing can be paused, upgraded or swept.
+///      Yield is harvested into the position's buffer, and payouts are made from
+///      the buffer only. Whatever the buffer holds above its cap is added to the principal.
+///      The vault has one asset and one yield source, both fixed at deployment, and no
+///      privileged role: nothing can be paused, upgraded or swept.
 contract PerennialVault is ReentrancyGuard {
     using SafeERC20 for IERC20;
 
@@ -64,6 +65,10 @@ contract PerennialVault is ReentrancyGuard {
         uint256 buffer;
         /// @dev Incremented by every signed action, so a signature works once.
         uint256 nonce;
+        /// @dev Most the buffer keeps after a harvest, claim or distribution; the rest
+        ///      is added to the principal. Fixed at opening. Zero compounds everything not
+        ///      paid out; type(uint256).max never compounds.
+        uint256 bufferCap;
     }
 
     struct OpenParams {
@@ -75,6 +80,7 @@ contract PerennialVault is ReentrancyGuard {
         uint64 gracePeriod;
         bool ownerCanClose;
         Heir[] heirs;
+        uint256 bufferCap;
     }
 
     IERC20 public immutable ASSET;
@@ -99,7 +105,8 @@ contract PerennialVault is ReentrancyGuard {
         uint64 payoutInterval,
         uint64 checkInPeriod,
         uint64 gracePeriod,
-        bool ownerCanClose
+        bool ownerCanClose,
+        uint256 bufferCap
     );
     event ToppedUp(uint256 indexed positionId, address indexed from, uint256 amount);
     event HeirsSet(uint256 indexed positionId, Heir[] heirs);
@@ -118,6 +125,8 @@ contract PerennialVault is ReentrancyGuard {
     event Claimed(
         uint256 indexed positionId, address indexed beneficiary, uint256 amount, uint256 periods
     );
+    /// @notice Buffer above the cap was added to the principal.
+    event Compounded(uint256 indexed positionId, uint256 amount);
 
     error ZeroAddress();
     error ZeroAmount();
@@ -176,6 +185,7 @@ contract PerennialVault is ReentrancyGuard {
         pos.gracePeriod = p.gracePeriod;
         pos.lastCheckIn = uint64(block.timestamp);
         pos.lastPayout = uint64(block.timestamp);
+        pos.bufferCap = p.bufferCap;
 
         _storeHeirs(positionId, p.heirs);
 
@@ -191,7 +201,8 @@ contract PerennialVault is ReentrancyGuard {
             p.payoutInterval,
             p.checkInPeriod,
             p.gracePeriod,
-            p.ownerCanClose
+            p.ownerCanClose,
+            p.bufferCap
         );
     }
 
@@ -210,10 +221,13 @@ contract PerennialVault is ReentrancyGuard {
     // Yield
     // ------------------------------------------------------------------
 
-    /// @notice Move the yield a position has earned into its buffer. Anyone may call:
-    ///         the yield can only land in the position's own buffer.
+    /// @notice Move the yield a position has earned into its buffer, and add whatever the
+    ///         buffer then holds above its cap to the principal. Anyone may call: the yield
+    ///         can only land in the position's own buffer or principal.
     function harvest(uint256 positionId) external nonReentrant returns (uint256 yield) {
-        return _harvest(positionId, _live(positionId));
+        Position storage pos = _live(positionId);
+        yield = _harvest(positionId, pos);
+        _compound(positionId, pos);
     }
 
     // ------------------------------------------------------------------
@@ -238,6 +252,8 @@ contract PerennialVault is ReentrancyGuard {
         _harvest(positionId, pos);
         uint256 periods;
         (paid, periods) = _settle(positionId, pos);
+
+        _compound(positionId, pos);
 
         if (paid != 0) ASSET.safeTransfer(pos.beneficiary, paid);
         emit Claimed(positionId, pos.beneficiary, paid, periods);
@@ -308,6 +324,7 @@ contract PerennialVault is ReentrancyGuard {
         _harvest(positionId, pos);
         (uint256 amount, uint256 periods) = _settle(positionId, pos);
         paid = _payHeirs(positionId, pos, amount);
+        _compound(positionId, pos);
 
         emit Distributed(positionId, paid, periods);
     }
@@ -494,6 +511,19 @@ contract PerennialVault is ReentrancyGuard {
 
         pos.buffer += yield;
         emit Harvested(positionId, msg.sender, yield);
+    }
+
+    /// @dev Adds whatever the buffer holds above its cap to the principal, depositing it into
+    ///      the source. Called after every payout path, so the scheduled payout is taken
+    ///      from the buffer before anything is compounded.
+    function _compound(uint256 positionId, Position storage pos) private {
+        uint256 cap = pos.bufferCap;
+        if (pos.buffer <= cap) return;
+        uint256 excess = pos.buffer - cap;
+        pos.buffer = cap;
+        pos.principal += excess;
+        pos.shares += SOURCE.deposit(excess, address(this));
+        emit Compounded(positionId, excess);
     }
 
     /// @dev Pulls `amount` from the caller and deposits it. Tokens that deliver less than
