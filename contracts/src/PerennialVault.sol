@@ -104,6 +104,8 @@ contract PerennialVault is ReentrancyGuard {
     event ToppedUp(uint256 indexed positionId, address indexed from, uint256 amount);
     event HeirsSet(uint256 indexed positionId, Heir[] heirs);
     event Harvested(uint256 indexed positionId, address indexed caller, uint256 yield);
+    event SuccessionTriggered(uint256 indexed positionId, address indexed caller);
+    event Distributed(uint256 indexed positionId, uint256 amount, uint256 periods);
     event CheckedIn(
         uint256 indexed positionId, address indexed beneficiary, uint256 successionDeadline
     );
@@ -125,6 +127,9 @@ contract PerennialVault is ReentrancyGuard {
     error SignatureExpired(uint256 deadline);
     error PositionSucceeded(uint256 positionId);
     error PayoutNotDue(uint256 positionId, uint256 dueAt);
+    error PositionNotSucceeded(uint256 positionId);
+    error SuccessionNotDue(uint256 positionId, uint256 notBefore);
+    error NoHeirs(uint256 positionId);
 
     constructor(IERC20 asset, IYieldSource source, address pqcVerify, address pqcKeyStatus) {
         if (
@@ -273,6 +278,38 @@ contract PerennialVault is ReentrancyGuard {
     }
 
     // ------------------------------------------------------------------
+    // Succession
+    // ------------------------------------------------------------------
+
+    /// @notice Hand the pension's income to the heirs once the beneficiary has missed the
+    ///         check-in period and the grace period. Anyone may call. It cannot be undone.
+    function triggerSuccession(uint256 positionId) external nonReentrant {
+        Position storage pos = _live(positionId);
+        if (pos.succeeded) revert PositionSucceeded(positionId);
+        uint256 notBefore = successionDeadline(positionId);
+        if (block.timestamp <= notBefore) revert SuccessionNotDue(positionId, notBefore);
+        if (_heirs[positionId].length == 0) revert NoHeirs(positionId);
+
+        pos.succeeded = true;
+        emit SuccessionTriggered(positionId, msg.sender);
+    }
+
+    /// @notice After succession, pay the scheduled amount to the heirs by weight.
+    /// @dev Permissionless and unsigned: the heirs and their weights are frozen at
+    ///      succession, so the call cannot change where the money goes. The heirs inherit
+    ///      the income; the principal stays invested.
+    function distribute(uint256 positionId) external nonReentrant returns (uint256 paid) {
+        Position storage pos = _live(positionId);
+        if (!pos.succeeded) revert PositionNotSucceeded(positionId);
+
+        _harvest(positionId, pos);
+        (uint256 amount, uint256 periods) = _settle(positionId, pos);
+        paid = _payHeirs(positionId, pos, amount);
+
+        emit Distributed(positionId, paid, periods);
+    }
+
+    // ------------------------------------------------------------------
     // Views
     // ------------------------------------------------------------------
 
@@ -361,6 +398,23 @@ contract PerennialVault is ReentrancyGuard {
     function _recordProofOfLife(uint256 positionId, Position storage pos) private {
         pos.lastCheckIn = uint64(block.timestamp);
         emit CheckedIn(positionId, pos.beneficiary, successionDeadline(positionId));
+    }
+
+    /// @dev Splits `amount`, already taken out of the buffer, between the heirs. What the
+    ///      division leaves over goes back into the buffer.
+    function _payHeirs(uint256 positionId, Position storage pos, uint256 amount)
+        private
+        returns (uint256 paid)
+    {
+        Heir[] storage list = _heirs[positionId];
+        uint256 count = list.length;
+        for (uint256 i; i < count; ++i) {
+            uint256 share = (amount * list[i].bps) / BPS;
+            if (share == 0) continue;
+            paid += share;
+            ASSET.safeTransfer(list[i].account, share);
+        }
+        pos.buffer += amount - paid;
     }
 
     /// @dev Takes what the schedule owes out of the buffer and advances the schedule by the
