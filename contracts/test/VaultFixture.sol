@@ -24,6 +24,9 @@ abstract contract VaultFixture is Test {
 
     MockERC20 internal token;
     MockYieldSource internal source;
+    address internal constant PQC_VERIFY = 0x0000000000000000000000000000000000000a01;
+    address internal constant PQC_KEY_STATUS = 0x0000000000000000000000000000000000000a02;
+
     MockPQC internal pqc;
     PerennialVault internal vault;
 
@@ -36,8 +39,11 @@ abstract contract VaultFixture is Test {
     function setUp() public virtual {
         token = new MockERC20();
         source = new MockYieldSource(token, RATE);
-        pqc = new MockPQC();
-        vault = new PerennialVault(token, source, address(pqc), address(pqc));
+        // The vault calls the chain's precompile addresses. Install the mock at both.
+        vm.etch(PQC_VERIFY, type(MockPQC).runtimeCode);
+        vm.etch(PQC_KEY_STATUS, type(MockPQC).runtimeCode);
+        pqc = MockPQC(PQC_KEY_STATUS);
+        vault = new PerennialVault(token, source);
 
         token.mint(address(this), 10_000_000 * USD);
         token.approve(address(source), type(uint256).max);

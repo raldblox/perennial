@@ -47,11 +47,18 @@ contract MockPQC is IQorePQC {
         records[account] = Record(registered, algorithmId, possessionProven, pubkey);
     }
 
+    /// @dev Where key records live when the mock is installed at both precompile addresses:
+    ///      the verifier copy reads the key-status copy, as the real chain shares one registry.
+    address private constant KEY_STATUS = 0x0000000000000000000000000000000000000a02;
+
     function pqcVerify(bytes calldata pubkey, bytes calldata signature, bytes calldata message)
         external
         view
         returns (bool)
     {
+        if (address(this) != KEY_STATUS && KEY_STATUS.code.length != 0) {
+            return MockPQC(KEY_STATUS).pqcVerify(pubkey, signature, message);
+        }
         bytes32 secret = secretOf[keccak256(pubkey)];
         if (secret == bytes32(0)) return false;
         return keccak256(signature) == keccak256(sign(secret, message));

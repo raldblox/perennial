@@ -80,9 +80,9 @@ contract PerennialVault is ReentrancyGuard {
     IERC20 public immutable ASSET;
     IYieldSource public immutable SOURCE;
     /// @notice The chain's ML-DSA-87 signature verification precompile.
-    address public immutable PQC_VERIFY;
+    address public constant PQC_VERIFY = 0x0000000000000000000000000000000000000a01;
     /// @notice The chain's post-quantum key registry precompile.
-    address public immutable PQC_KEY_STATUS;
+    address public constant PQC_KEY_STATUS = 0x0000000000000000000000000000000000000a02;
 
     /// @notice Number of positions opened. Position ids run from 1 to this value.
     uint256 public positionCount;
@@ -138,17 +138,13 @@ contract PerennialVault is ReentrancyGuard {
     error NoHeirs(uint256 positionId);
     error CloseNotAllowed(uint256 positionId);
 
-    constructor(IERC20 asset, IYieldSource source, address pqcVerify, address pqcKeyStatus) {
-        if (
-            address(asset) == address(0) || address(source) == address(0) || pqcVerify == address(0)
-                || pqcKeyStatus == address(0)
-        ) revert ZeroAddress();
+    constructor(IERC20 asset, IYieldSource source) {
+        if (address(asset) == address(0) || address(source) == address(0)) revert ZeroAddress();
         if (source.asset() != address(asset)) revert AssetMismatch();
 
         ASSET = asset;
         SOURCE = source;
-        PQC_VERIFY = pqcVerify;
-        PQC_KEY_STATUS = pqcKeyStatus;
+        PQCAuth.requireAvailable(PQC_VERIFY, PQC_KEY_STATUS);
 
         asset.forceApprove(address(source), type(uint256).max);
     }

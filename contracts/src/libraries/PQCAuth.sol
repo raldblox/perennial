@@ -21,6 +21,17 @@ library PQCAuth {
     error PQCKeyNotProven(address account);
     error PQCSignatureInvalid(address account);
 
+    /// @notice Revert unless both precompiles answer. Called once at deployment, so a
+    ///         contract can never be deployed on a chain where it could authorise nothing.
+    function requireAvailable(address verifier, address keyStatus) internal view {
+        (bool ok, bytes memory ret) =
+            keyStatus.staticcall(abi.encodeCall(IQorePQC.pqcKeyStatus, (address(0))));
+        if (!ok || ret.length < MIN_KEY_STATUS_RETURN) revert PQCUnavailable(keyStatus);
+
+        (ok, ret) = verifier.staticcall(abi.encodeCall(IQorePQC.pqcVerify, ("", "", "")));
+        if (!ok || ret.length != 32) revert PQCUnavailable(verifier);
+    }
+
     /// @notice Return the account's ML-DSA-87 key, requiring a verified proof of possession.
     function provenKey(address keyStatus, address account)
         internal

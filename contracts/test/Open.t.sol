@@ -7,6 +7,7 @@ import {PerennialVault} from "../src/PerennialVault.sol";
 import {MockYieldSource} from "../src/mocks/MockYieldSource.sol";
 import {PQCAuth} from "../src/libraries/PQCAuth.sol";
 import {VaultFixture} from "./VaultFixture.sol";
+import {MockPQC} from "./mocks/MockPQC.sol";
 
 /// @dev Keeps 1% of every transfer.
 contract FeeOnTransferToken is ERC20 {
@@ -28,12 +29,24 @@ contract OpenTest is VaultFixture {
     function test_constructor_revertsOnAssetMismatch() public {
         IERC20 other = IERC20(address(new FeeOnTransferToken()));
         vm.expectRevert(PerennialVault.AssetMismatch.selector);
-        new PerennialVault(other, source, address(pqc), address(pqc));
+        new PerennialVault(other, source);
     }
 
-    function test_constructor_revertsOnZeroPrecompile() public {
+    function test_constructor_revertsOnZeroSource() public {
         vm.expectRevert(PerennialVault.ZeroAddress.selector);
-        new PerennialVault(token, source, address(0), address(pqc));
+        new PerennialVault(token, MockYieldSource(address(0)));
+    }
+
+    /// An inactive precompile answers with success and no data; deployment must fail.
+    function test_constructor_revertsWhenPrecompilesAreInactive() public {
+        vm.etch(PQC_KEY_STATUS, "");
+        vm.expectRevert(abi.encodeWithSelector(PQCAuth.PQCUnavailable.selector, PQC_KEY_STATUS));
+        new PerennialVault(token, source);
+
+        vm.etch(PQC_KEY_STATUS, type(MockPQC).runtimeCode);
+        vm.etch(PQC_VERIFY, "");
+        vm.expectRevert(abi.encodeWithSelector(PQCAuth.PQCUnavailable.selector, PQC_VERIFY));
+        new PerennialVault(token, source);
     }
 
     function test_open_recordsThePosition() public {
@@ -176,7 +189,7 @@ contract OpenTest is VaultFixture {
     function test_open_revertsOnFeeOnTransferToken() public {
         FeeOnTransferToken fee = new FeeOnTransferToken();
         MockYieldSource feeSource = new MockYieldSource(fee, RATE);
-        PerennialVault feeVault = new PerennialVault(fee, feeSource, address(pqc), address(pqc));
+        PerennialVault feeVault = new PerennialVault(fee, feeSource);
         fee.mint(owner, PRINCIPAL);
 
         vm.startPrank(owner);

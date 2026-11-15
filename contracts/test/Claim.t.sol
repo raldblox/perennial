@@ -172,7 +172,7 @@ contract ClaimTest is VaultFixture {
     }
 
     function test_claim_revertsWithASignatureForAnotherVault() public {
-        PerennialVault other = new PerennialVault(token, source, address(pqc), address(pqc));
+        PerennialVault other = new PerennialVault(token, source);
         vm.startPrank(owner);
         token.approve(address(other), type(uint256).max);
         uint256 otherId = other.open(_params());
