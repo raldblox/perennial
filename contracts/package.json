@@ -14,7 +14,8 @@
     "deploy:dry-run": "forge script script/Deploy.s.sol:Deploy --rpc-url qorechain_testnet --skip-simulation",
     "deploy:testnet": "forge script script/Deploy.s.sol:Deploy --rpc-url qorechain_testnet --broadcast --slow --skip-simulation",
     "e2e": "tsx --env-file=.env scripts/e2e.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "swap": "tsx --env-file=.env scripts/swap.ts"
   },
   "dependencies": {
     "@cosmjs/stargate": "^0.39.0",
