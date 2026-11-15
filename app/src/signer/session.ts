@@ -14,12 +14,14 @@ import { StargateClient } from "@cosmjs/stargate";
 import { evmWindowCost, evmWindowStatus, type EvmWindow } from "@qorechain/evm";
 import { mldsa } from "@qorechain/pqc";
 import {
+  amm,
   deriveNativeAccount,
   derivePqcCanonical,
   deriveUnifiedAccount,
   EthNativeSigner,
   openEvmWindowMsg,
   closeEvmWindowMsg,
+  qorechainRegistry,
   qorToEvm,
   validateMnemonic,
   type PqcKeypair,
@@ -29,6 +31,8 @@ import { bytesToHex, createWalletClient, getAddress, hexToBytes, http, type Addr
 import { privateKeyToAccount } from "viem/accounts";
 import { chain } from "../chain/client";
 import { config } from "../config";
+import { MAX_SWAP_UQOR, quoteFromPool, type Pool, type SwapQuote } from "../lib/swap";
+import { CONVERT_COIN_TYPE_URL, MsgConvertCoinCodec } from "./convert";
 
 export interface SessionAccount {
   /** The EVM account (m/44'/60'/0'/0/0). Sends every transaction. */
@@ -159,16 +163,54 @@ export async function closeWindow(): Promise<string> {
   return broadcastNative([closeEvmWindowMsg(unified.cosmos)]);
 }
 
+const FUSD_DENOM = `erc20:${config.asset}`;
+
+/** Quotes a swap of `amountIn` uqor for fUSD in the native AMM pool, through the native REST API. */
+export async function quoteSwap(amountIn: bigint): Promise<SwapQuote> {
+  const response = await fetch(`${config.restUrl}/qorechain/amm/v1/pools/${config.swapPoolId}`);
+  if (!response.ok) throw new Error(`pool query failed: HTTP ${response.status}`);
+  const body = (await response.json()) as { pool?: Pool };
+  return quoteFromPool(body.pool, FUSD_DENOM, amountIn);
+}
+
+/**
+ * Swaps QOR for fUSD in the native AMM and converts the guaranteed minimum into
+ * the ERC-20 balance the vault can take, in one hybrid-signed transaction.
+ * Whatever the swap pays above the minimum stays a bank coin.
+ */
+export async function swapQorForFusd(quote: SwapQuote): Promise<string> {
+  const { unified } = need();
+  if (quote.amountIn <= 0n || quote.amountIn > MAX_SWAP_UQOR) throw new Error("swap between 0 and 1 QOR");
+  if (quote.minOut <= 0n) throw new Error("the quote rounds to zero");
+  return broadcastNative(
+    [
+      amm.swapExactIn({
+        sender: unified.cosmos,
+        poolId: config.swapPoolId,
+        tokenIn: { denom: "uqor", amount: quote.amountIn.toString() },
+        denomOut: FUSD_DENOM,
+        minOut: quote.minOut.toString(),
+      }),
+      {
+        typeUrl: CONVERT_COIN_TYPE_URL,
+        value: { coin: { denom: FUSD_DENOM, amount: quote.minOut.toString() }, receiver: unified.evm, sender: unified.cosmos },
+      },
+    ],
+    true,
+  );
+}
+
 /** A native-lane fee: hybrid transactions are large, so the gas limit is generous. */
 const NATIVE_FEE = { amount: [{ denom: "uqor", amount: "100000" }], gas: "800000" };
 
-async function broadcastNative(messages: Parameters<EthNativeSigner["sign"]>[0]["messages"]): Promise<string> {
+async function broadcastNative(messages: Parameters<EthNativeSigner["sign"]>[0]["messages"], withConvert = false): Promise<string> {
   const { unified } = need();
   const response = await fetch(`${config.restUrl}/cosmos/auth/v1beta1/accounts/${unified.cosmos}`);
   if (!response.ok) throw new Error(`account query failed: HTTP ${response.status}`);
   const body = (await response.json()) as { account?: Record<string, unknown> };
   const record = (body.account?.base_account ?? body.account ?? {}) as Record<string, string | undefined>;
-  const signer = new EthNativeSigner(unified, { signMode: "hybrid", rest: config.restUrl });
+  const registry = withConvert ? qorechainRegistry([[CONVERT_COIN_TYPE_URL, MsgConvertCoinCodec]]) : undefined;
+  const signer = new EthNativeSigner(unified, { signMode: "hybrid", rest: config.restUrl, ...(registry ? { registry } : {}) });
   const transport = await StargateClient.connect(config.rpcUrl);
   try {
     const result = await signer.signAndBroadcast(transport, {

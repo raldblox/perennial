@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeSizing } from "../components/Calculator";
+import { computeAgentSizing } from "../components/AgentCalculator";
 import { parseRoute, href } from "../router";
 import { validateTerms, type TermsDraft } from "./openForm";
 
@@ -54,39 +54,45 @@ describe("validateTerms", () => {
   });
 });
 
-describe("computeSizing", () => {
-  it("sizes a payout", () => {
-    expect(computeSizing({ mode: "principal", amount: "400", interval: "monthly", rate: "5", margin: "1.15" })).toEqual({
-      principal: 110_400_000_000n,
-      payout: 400_000_000n,
-      annual: 4_800_000_000n,
-      breakEvenBps: 435n,
+describe("computeAgentSizing", () => {
+  it("sizes a deposit from calls an hour and a price", () => {
+    expect(computeAgentSizing({ mode: "deposit", calls: "1", deposit: "", price: "0.002", rate: "5", margin: "1.15" })).toEqual({
+      deposit: 402_960_000n,
+      callsPerHourX100: 100n,
+      price: 2_000n,
+      yearly: 17_520_000n,
     });
   });
 
-  it("inverts: principal to payout", () => {
-    const result = computeSizing({ mode: "payout", amount: "110400", interval: "monthly", rate: "5", margin: "1.15" });
-    expect(result?.payout).toBe(400_000_000n);
-    expect(result?.annual).toBe(4_800_000_000n);
+  it("inverts: 500 fUSD pays 1.24 calls an hour", () => {
+    const result = computeAgentSizing({ mode: "calls", calls: "", deposit: "500", price: "0.002", rate: "5", margin: "1.15" });
+    expect(result?.callsPerHourX100).toBe(124n);
   });
 
-  it("refuses a margin under 1, a zero rate and bad numbers", () => {
-    expect(computeSizing({ mode: "principal", amount: "400", interval: "monthly", rate: "5", margin: "0.9" })).toBeNull();
-    expect(computeSizing({ mode: "principal", amount: "400", interval: "monthly", rate: "0", margin: "1.15" })).toBeNull();
-    expect(computeSizing({ mode: "principal", amount: "x", interval: "monthly", rate: "5", margin: "1.15" })).toBeNull();
+  it("refuses a margin under 1, a zero rate or price, and bad numbers", () => {
+    const base = { mode: "deposit" as const, calls: "1", deposit: "", price: "0.002", rate: "5", margin: "1.15" };
+    expect(computeAgentSizing({ ...base, margin: "0.9" })).toBeNull();
+    expect(computeAgentSizing({ ...base, rate: "0" })).toBeNull();
+    expect(computeAgentSizing({ ...base, price: "0" })).toBeNull();
+    expect(computeAgentSizing({ ...base, calls: "x" })).toBeNull();
   });
 });
 
 describe("routes", () => {
-  it("parses and builds hash routes", () => {
+  it("parses and builds hash routes, with the vault", () => {
     expect(parseRoute("")).toEqual({ name: "overview" });
-    expect(parseRoute("#/open")).toEqual({ name: "open" });
-    expect(parseRoute("#/positions")).toEqual({ name: "positions" });
-    expect(parseRoute("#/positions?address=0xabc")).toEqual({ name: "positions", address: "0xabc" });
-    expect(parseRoute("#/position/12")).toEqual({ name: "position", id: 12n });
+    expect(parseRoute("#/open")).toEqual({ name: "open", vault: "agent" });
+    expect(parseRoute("#/open?vault=demo&calls=2")).toEqual({ name: "open", vault: "demo" });
+    expect(parseRoute("#/positions")).toEqual({ name: "positions", vault: "agent" });
+    expect(parseRoute("#/positions?vault=v1&address=0xabc")).toEqual({ name: "positions", vault: "v1", address: "0xabc" });
+    expect(parseRoute("#/position/12")).toEqual({ name: "position", vault: "agent", id: 12n });
+    expect(parseRoute("#/position/v1/2")).toEqual({ name: "position", vault: "v1", id: 2n });
     expect(parseRoute("#/position/0")).toEqual({ name: "not-found" });
-    expect(parseRoute("#/position/abc")).toEqual({ name: "not-found" });
+    expect(parseRoute("#/position/nowhere/2")).toEqual({ name: "not-found" });
+    expect(parseRoute("#/open?vault=nowhere")).toEqual({ name: "not-found" });
     expect(parseRoute("#/nope")).toEqual({ name: "not-found" });
-    expect(href({ name: "position", id: 7n })).toBe("#/position/7");
+    expect(href({ name: "position", vault: "agent", id: 7n })).toBe("#/position/7");
+    expect(href({ name: "position", vault: "demo", id: 7n })).toBe("#/position/demo/7");
+    expect(href({ name: "open", vault: "demo" })).toBe("#/open?vault=demo");
   });
 });

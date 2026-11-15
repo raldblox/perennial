@@ -31,6 +31,7 @@ function position(overrides: Partial<PositionState> = {}): PositionState {
     shares: 110_400n,
     buffer: 0n,
     nonce: 0n,
+    bufferCap: 2n ** 256n - 1n,
     ...overrides,
   };
 }

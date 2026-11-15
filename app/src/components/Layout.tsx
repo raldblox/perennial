@@ -1,8 +1,10 @@
+import { useQueries } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
-import { config } from "../config";
-import { account as accountCopy, brand, errors, footer, nav } from "../copy";
+import { readVaultInfo } from "../chain/vault";
+import { config, type VaultConfig } from "../config";
+import { account as accountCopy, brand, errors, footer, nav, vaultNames } from "../copy";
 import { href, type Route } from "../router";
-import { useChainId, useVaultInfo } from "../state/queries";
+import { useChainId, useClient, useVaultInfo } from "../state/queries";
 import { useSession } from "../state/session";
 import { UnlockDialog } from "./UnlockDialog";
 import { Mark, Notice, shortAddress } from "./ui";
@@ -15,11 +17,20 @@ function NavLink({ to, current, children }: { to: Route; current: boolean; child
   );
 }
 
+/** True when any configured vault holds an asset other than the configured fUSD. */
+function useAnyAssetMismatch(): boolean {
+  const client = useClient();
+  const infos = useQueries({
+    queries: config.vaults.map((vault) => ({ queryKey: ["vault-info", vault.id], queryFn: () => readVaultInfo(client, vault), staleTime: 30_000 })),
+  });
+  return infos.some((q) => q.data !== undefined && !q.data.assetMatches);
+}
+
 export function Layout({ route, children }: { route: Route; children: ReactNode }) {
   const { account, lock } = useSession();
   const [unlocking, setUnlocking] = useState(false);
   const chainId = useChainId();
-  const info = useVaultInfo();
+  const mismatch = useAnyAssetMismatch();
   const wrongNetwork = chainId.data !== undefined && chainId.data !== config.chainId;
 
   return (
@@ -40,10 +51,10 @@ export function Layout({ route, children }: { route: Route; children: ReactNode 
             <NavLink to={{ name: "overview" }} current={route.name === "overview"}>
               {nav.overview}
             </NavLink>
-            <NavLink to={{ name: "open" }} current={route.name === "open"}>
+            <NavLink to={{ name: "open", vault: config.defaultVault }} current={route.name === "open"}>
               {nav.open}
             </NavLink>
-            <NavLink to={{ name: "positions" }} current={route.name === "positions" || route.name === "position"}>
+            <NavLink to={{ name: "positions", vault: config.defaultVault }} current={route.name === "positions" || route.name === "position"}>
               {nav.positions}
             </NavLink>
             {account ? (
@@ -63,10 +74,10 @@ export function Layout({ route, children }: { route: Route; children: ReactNode 
           </nav>
         </div>
       </header>
-      {wrongNetwork || (info.data && !info.data.assetMatches) ? (
+      {wrongNetwork || mismatch ? (
         <div className="page" style={{ paddingTop: "var(--space-4)" }}>
           {wrongNetwork ? <Notice tone="danger" title={errors.wrongNetwork(config.chainId, chainId.data)} /> : null}
-          {info.data && !info.data.assetMatches ? <Notice tone="danger" title={errors.assetMismatch} /> : null}
+          {mismatch ? <Notice tone="danger" title={errors.assetMismatch} /> : null}
         </div>
       ) : null}
       <main id="main" tabIndex={-1}>
@@ -79,16 +90,11 @@ export function Layout({ route, children }: { route: Route; children: ReactNode 
             {footer.explorer}
           </p>
           <dl>
-            <dt>{footer.vault}</dt>
-            <dd className="mono">{config.vault}</dd>
+            {config.vaults.map((vault) => (
+              <VaultLine key={vault.id} vault={vault} />
+            ))}
             <dt>{footer.asset}</dt>
-            <dd className="mono">{info.data?.asset ?? config.asset}</dd>
-            {info.data ? (
-              <>
-                <dt>{footer.source}</dt>
-                <dd className="mono">{info.data.source}</dd>
-              </>
-            ) : null}
+            <dd className="mono">{config.asset}</dd>
             <dt>{footer.code}</dt>
             <dd>
               <a href={config.sourceUrl} target="_blank" rel="noreferrer">
@@ -103,9 +109,22 @@ export function Layout({ route, children }: { route: Route; children: ReactNode 
   );
 }
 
-/** Whether writes are allowed: right chain and the expected asset. */
-export function useWritesAllowed(): boolean {
+function VaultLine({ vault }: { vault: VaultConfig }) {
+  return (
+    <>
+      <dt>
+        {vaultNames[vault.id].name}
+        <br />
+        <span className="faint">{vaultNames[vault.id].rate}</span>
+      </dt>
+      <dd className="mono">{vault.address}</dd>
+    </>
+  );
+}
+
+/** Whether writes to this vault are allowed: right chain, expected asset, writable vault. */
+export function useWritesAllowed(vault: VaultConfig): boolean {
   const chainId = useChainId();
-  const info = useVaultInfo();
-  return chainId.data === config.chainId && info.data?.assetMatches === true;
+  const info = useVaultInfo(vault);
+  return vault.writable && chainId.data === config.chainId && info.data?.assetMatches === true;
 }

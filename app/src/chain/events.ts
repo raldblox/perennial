@@ -1,24 +1,33 @@
 /**
- * The vault's history, read from its event logs. The testnet RPC answers
+ * A vault's history, read from its event logs. The testnet RPC answers
  * `eth_getLogs` for at most 10,000 blocks at a time, so the range is read in
  * slices that the transport batches into few requests.
  */
-import { decodeEventLog, getAddress, type Address, type Log, type PublicClient } from "viem";
-import { config } from "../config";
-import { vaultAbi } from "./abi";
+import { decodeEventLog, getAddress, type Address, type Hex, type Log, type PublicClient } from "viem";
+import type { VaultConfig } from "../config";
+import { vaultAbi, vaultAbiV1 } from "./abi";
 
 export const LOG_RANGE = 10_000n;
 
+interface Base {
+  positionId: bigint;
+  block: bigint;
+  tx: Hex;
+  logIndex: number;
+}
+
 export type VaultEvent =
-  | { kind: "Opened"; positionId: bigint; owner: Address; beneficiary: Address; amount: bigint; block: bigint; tx: `0x${string}` }
-  | { kind: "ToppedUp"; positionId: bigint; amount: bigint; block: bigint; tx: `0x${string}` }
-  | { kind: "HeirsSet"; positionId: bigint; heirs: Address[]; block: bigint; tx: `0x${string}` }
-  | { kind: "Harvested"; positionId: bigint; amount: bigint; block: bigint; tx: `0x${string}` }
-  | { kind: "Claimed"; positionId: bigint; amount: bigint; block: bigint; tx: `0x${string}` }
-  | { kind: "Distributed"; positionId: bigint; amount: bigint; block: bigint; tx: `0x${string}` }
-  | { kind: "CheckedIn"; positionId: bigint; block: bigint; tx: `0x${string}` }
-  | { kind: "SuccessionTriggered"; positionId: bigint; block: bigint; tx: `0x${string}` }
-  | { kind: "Closed"; positionId: bigint; principalReturned: bigint; yieldPaid: bigint; block: bigint; tx: `0x${string}` };
+  | (Base & { kind: "Opened"; owner: Address; beneficiary: Address; amount: bigint })
+  | (Base & { kind: "ToppedUp"; from: Address; amount: bigint })
+  | (Base & { kind: "HeirsSet"; heirs: Address[] })
+  | (Base & { kind: "Harvested"; amount: bigint })
+  | (Base & { kind: "Claimed"; to: Address; amount: bigint })
+  | (Base & { kind: "Spent"; to: Address; amount: bigint; ref: Hex })
+  | (Base & { kind: "Compounded"; amount: bigint })
+  | (Base & { kind: "Distributed"; amount: bigint })
+  | (Base & { kind: "CheckedIn" })
+  | (Base & { kind: "SuccessionTriggered" })
+  | (Base & { kind: "Closed"; principalReturned: bigint; yieldPaid: bigint });
 
 /** Splits [from, to] into inclusive slices of at most `size` blocks. */
 export function slices(from: bigint, to: bigint, size: bigint = LOG_RANGE): [bigint, bigint][] {
@@ -31,66 +40,56 @@ export function slices(from: bigint, to: bigint, size: bigint = LOG_RANGE): [big
 }
 
 export function decodeVaultLog(log: Log): VaultEvent | null {
+  const base = { block: log.blockNumber ?? 0n, tx: log.transactionHash ?? "0x", logIndex: log.logIndex ?? 0 };
   let decoded;
   try {
     decoded = decodeEventLog({ abi: vaultAbi, data: log.data, topics: log.topics });
   } catch {
-    return null;
+    // Version 1's Opened has one field fewer.
+    try {
+      const v1 = decodeEventLog({ abi: vaultAbiV1, data: log.data, topics: log.topics });
+      return {
+        ...base,
+        kind: "Opened",
+        positionId: v1.args.positionId,
+        owner: getAddress(v1.args.owner),
+        beneficiary: getAddress(v1.args.beneficiary),
+        amount: v1.args.amount,
+      };
+    } catch {
+      return null;
+    }
   }
-  const block = log.blockNumber ?? 0n;
-  const tx = log.transactionHash ?? "0x";
   switch (decoded.eventName) {
     case "Opened":
-      return {
-        kind: "Opened",
-        positionId: decoded.args.positionId,
-        owner: getAddress(decoded.args.owner),
-        beneficiary: getAddress(decoded.args.beneficiary),
-        amount: decoded.args.amount,
-        block,
-        tx,
-      };
+      return { ...base, kind: "Opened", positionId: decoded.args.positionId, owner: getAddress(decoded.args.owner), beneficiary: getAddress(decoded.args.beneficiary), amount: decoded.args.amount };
     case "ToppedUp":
-      return { kind: "ToppedUp", positionId: decoded.args.positionId, amount: decoded.args.amount, block, tx };
+      return { ...base, kind: "ToppedUp", positionId: decoded.args.positionId, from: getAddress(decoded.args.from), amount: decoded.args.amount };
     case "HeirsSet":
-      return {
-        kind: "HeirsSet",
-        positionId: decoded.args.positionId,
-        heirs: decoded.args.heirs.map((h) => getAddress(h.account)),
-        block,
-        tx,
-      };
+      return { ...base, kind: "HeirsSet", positionId: decoded.args.positionId, heirs: decoded.args.heirs.map((h) => getAddress(h.account)) };
     case "Harvested":
-      return { kind: "Harvested", positionId: decoded.args.positionId, amount: decoded.args.yield, block, tx };
+      return { ...base, kind: "Harvested", positionId: decoded.args.positionId, amount: decoded.args.yield };
     case "Claimed":
-      return { kind: "Claimed", positionId: decoded.args.positionId, amount: decoded.args.amount, block, tx };
+      return { ...base, kind: "Claimed", positionId: decoded.args.positionId, to: getAddress(decoded.args.beneficiary), amount: decoded.args.amount };
+    case "Spent":
+      return { ...base, kind: "Spent", positionId: decoded.args.positionId, to: getAddress(decoded.args.to), amount: decoded.args.amount, ref: decoded.args.ref };
+    case "Compounded":
+      return { ...base, kind: "Compounded", positionId: decoded.args.positionId, amount: decoded.args.amount };
     case "Distributed":
-      return { kind: "Distributed", positionId: decoded.args.positionId, amount: decoded.args.amount, block, tx };
+      return { ...base, kind: "Distributed", positionId: decoded.args.positionId, amount: decoded.args.amount };
     case "CheckedIn":
-      return { kind: "CheckedIn", positionId: decoded.args.positionId, block, tx };
+      return { ...base, kind: "CheckedIn", positionId: decoded.args.positionId };
     case "SuccessionTriggered":
-      return { kind: "SuccessionTriggered", positionId: decoded.args.positionId, block, tx };
+      return { ...base, kind: "SuccessionTriggered", positionId: decoded.args.positionId };
     case "Closed":
-      return {
-        kind: "Closed",
-        positionId: decoded.args.positionId,
-        principalReturned: decoded.args.principalReturned,
-        yieldPaid: decoded.args.yieldPaid,
-        block,
-        tx,
-      };
+      return { ...base, kind: "Closed", positionId: decoded.args.positionId, principalReturned: decoded.args.principalReturned, yieldPaid: decoded.args.yieldPaid };
   }
 }
 
-export async function scanVaultEvents(
-  client: PublicClient,
-  options: { vault?: Address; fromBlock?: bigint; toBlock?: bigint } = {},
-): Promise<VaultEvent[]> {
-  const vault = options.vault ?? config.vault;
-  const toBlock = options.toBlock ?? (await client.getBlockNumber());
-  const fromBlock = options.fromBlock ?? config.deployBlock;
+export async function scanVaultEvents(client: PublicClient, vault: VaultConfig, toBlock?: bigint): Promise<VaultEvent[]> {
+  const end = toBlock ?? (await client.getBlockNumber());
   const batches = await Promise.all(
-    slices(fromBlock, toBlock).map(([from, to]) => client.getLogs({ address: vault, fromBlock: from, toBlock: to })),
+    slices(vault.deployBlock, end).map(([from, to]) => client.getLogs({ address: vault.address, fromBlock: from, toBlock: to })),
   );
   return batches.flat().flatMap((log) => {
     const event = decodeVaultLog(log);
@@ -128,23 +127,47 @@ export function positionsInvolving(events: readonly VaultEvent[], account: Addre
 export interface Totals {
   opened: number;
   harvested: bigint;
+  spent: bigint;
+  spends: number;
   paidOut: bigint;
+  compounded: bigint;
 }
 
 export function totals(events: readonly VaultEvent[]): Totals {
-  let opened = 0;
-  let harvested = 0n;
-  let paidOut = 0n;
+  const t: Totals = { opened: 0, harvested: 0n, spent: 0n, spends: 0, paidOut: 0n, compounded: 0n };
   for (const e of events) {
-    if (e.kind === "Opened") opened += 1;
-    else if (e.kind === "Harvested") harvested += e.amount;
-    else if (e.kind === "Claimed" || e.kind === "Distributed") paidOut += e.amount;
-    else if (e.kind === "Closed") paidOut += e.yieldPaid;
+    if (e.kind === "Opened") t.opened += 1;
+    else if (e.kind === "Harvested") t.harvested += e.amount;
+    else if (e.kind === "Spent") {
+      t.spent += e.amount;
+      t.spends += 1;
+      t.paidOut += e.amount;
+    } else if (e.kind === "Claimed" || e.kind === "Distributed") t.paidOut += e.amount;
+    else if (e.kind === "Closed") t.paidOut += e.yieldPaid;
+    else if (e.kind === "Compounded") t.compounded += e.amount;
   }
-  return { opened, harvested, paidOut };
+  return t;
 }
 
 /** Events of one position, newest first. */
 export function historyOf(events: readonly VaultEvent[], id: bigint): VaultEvent[] {
-  return events.filter((e) => e.positionId === id).sort((a, b) => (a.block === b.block ? 0 : a.block > b.block ? -1 : 1));
+  return events
+    .filter((e) => e.positionId === id)
+    .sort((a, b) => (a.block === b.block ? b.logIndex - a.logIndex : a.block > b.block ? -1 : 1));
+}
+
+/** Spending over a recent window: what the agent has been paying, per hour. */
+export function spendRate(events: readonly VaultEvent[], id: bigint, now: bigint, windowSeconds: bigint, blockTime: (block: bigint) => bigint): {
+  calls: number;
+  amount: bigint;
+} {
+  let calls = 0;
+  let amount = 0n;
+  for (const e of events) {
+    if (e.kind !== "Spent" || e.positionId !== id) continue;
+    if (now - blockTime(e.block) > windowSeconds) continue;
+    calls += 1;
+    amount += e.amount;
+  }
+  return { calls, amount };
 }

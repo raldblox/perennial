@@ -24,6 +24,8 @@ export interface PositionState {
   shares: bigint;
   buffer: bigint;
   nonce: bigint;
+  /** Most the buffer keeps; the rest is added to the principal (version 2). */
+  bufferCap: bigint;
 }
 
 export type Phase =

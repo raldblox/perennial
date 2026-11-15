@@ -4,13 +4,12 @@ import type { ReactElement } from "react";
 import { encodeAbiParameters, encodeEventTopics, type Address, type Hash, type Log, type PublicClient } from "viem";
 import { vi } from "vitest";
 import { vaultAbi } from "../chain/abi";
-import { config } from "../config";
 import { Providers } from "../providers";
 import type { SessionAccount } from "../signer/session";
 import { SessionProvider } from "../state/session";
 import { ChainContext } from "../state/queries";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { ALICE } from "./fakeChain";
+import { AGENT_VAULT, ALICE } from "./fakeChain";
 
 export function renderWith(ui: ReactElement, client: PublicClient) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -51,10 +50,12 @@ export function fakeSigner(options: { windowLive?: boolean; windowReachable?: bo
       Promise.resolve(
         options.windowReachable === false
           ? { reachable: false, reason: "not forwarded" }
-          : { reachable: true, window: { found: true, live: options.windowLive ?? true, remainingBlocks: 2_000n, remainingTxs: 5n, allowedTargets: [config.vault] } },
+          : { reachable: true, window: { found: true, live: options.windowLive ?? true, remainingBlocks: 2_000n, remainingTxs: 5n, allowedTargets: [AGENT_VAULT.address] } },
       ),
     ),
     openWindow: vi.fn(() => Promise.resolve("ABCDEF")),
+    quoteSwap: vi.fn(() => Promise.resolve({ amountIn: 1_000_000n, quote: 84_983n, minOut: 82_433n })),
+    swapQorForFusd: vi.fn(() => Promise.resolve("5WAP")),
   };
   return { module, sent, account };
 }
@@ -62,11 +63,11 @@ export function fakeSigner(options: { windowLive?: boolean; windowReachable?: bo
 /** Adds the write side to a fake client: simulation, gas, receipts with an Opened log. */
 export function withWrites(client: PublicClient, openedId = 3n): PublicClient {
   const receiptLog = {
-    address: config.vault,
+    address: AGENT_VAULT.address,
     topics: encodeEventTopics({ abi: vaultAbi, eventName: "Opened", args: { positionId: openedId, owner: ALICE, beneficiary: ALICE } }),
     data: encodeAbiParameters(
-      [{ type: "uint256" }, { type: "uint256" }, { type: "uint64" }, { type: "uint64" }, { type: "uint64" }, { type: "bool" }],
-      [1n, 0n, 1n, 1n, 1n, false],
+      [{ type: "uint256" }, { type: "uint256" }, { type: "uint64" }, { type: "uint64" }, { type: "uint64" }, { type: "bool" }, { type: "uint256" }],
+      [1n, 0n, 1n, 1n, 1n, false, 0n],
     ),
   } as unknown as Log;
   return Object.assign(client, {

@@ -484,6 +484,21 @@ textarea {
   cursor: pointer;
 }
 
+.segmented .segment {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.5rem;
+  padding: 0 var(--space-4);
+  color: var(--ink-2);
+  font-size: var(--size-small);
+  text-decoration: none;
+}
+
+.segmented .segment[aria-current="page"] {
+  background: var(--ink);
+  color: var(--paper);
+}
+
 .segmented button[aria-pressed="true"] {
   background: var(--ink);
   color: var(--paper);

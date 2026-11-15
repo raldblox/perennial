@@ -6,11 +6,13 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import type { Address } from "viem";
 import { explainError, type ExplainedError } from "../chain/errors";
-import { config } from "../config";
-import { account as copy, common, requirements } from "../copy";
+import { config, type VaultConfig } from "../config";
+import { account as copy, common, requirements, swap as swapCopy } from "../copy";
+import { parseDecimal } from "../lib/decimal";
+import { MAX_SWAP_UQOR, type SwapQuote } from "../lib/swap";
 import { useBalances, useClient, useKeyStatus, useVaultInfo, useWindow } from "../state/queries";
 import { useSession } from "../state/session";
-import { AddressText, Amount, NativeTxLink, Notice, Spinner, Status } from "./ui";
+import { AddressText, Amount, formatAmount, NativeTxLink, Notice, Spinner, Status } from "./ui";
 
 export type Blocker = "no-key" | "key-mismatch" | "no-window" | "window-unreachable" | "no-gas";
 
@@ -24,10 +26,10 @@ export interface Readiness {
 }
 
 /** Whether the unlocked account can send a transaction now, and if not, why. */
-export function useReadiness(): Readiness {
+export function useReadiness(vault: VaultConfig): Readiness {
   const { account } = useSession();
   const key = useKeyStatus(account?.evm);
-  const balances = useBalances(account?.evm);
+  const balances = useBalances(account?.evm, vault);
   const window = useWindow();
   if (!account) return { ready: false, loading: false, blockers: [] };
   const loading = key.isPending || balances.isPending || window.isPending;
@@ -54,14 +56,105 @@ function KeyLine({ account, derived }: { account: Address; derived: string | und
   return <Status tone="ok">{copy.keyUsable}</Status>;
 }
 
-export function AccountPanel() {
+/** Swap up to 1 QOR for fUSD in the native AMM, from the unlocked account. */
+function SwapForm() {
+  const { signer } = useSession();
+  const queryClient = useQueryClient();
+  const [amount, setAmount] = useState("1");
+  const [quote, setQuote] = useState<SwapQuote | null>(null);
+  const [state, setState] = useState<{ busy: boolean; hash?: string; error?: ExplainedError; unreachable?: boolean }>({ busy: false });
+  const parsed = parseDecimal(amount, 6);
+  const valid = parsed.ok && parsed.value > 0n && parsed.value <= MAX_SWAP_UQOR;
+
+  const getQuote = async () => {
+    if (!signer || !parsed.ok) return;
+    setState({ busy: true });
+    try {
+      setQuote(await signer.quoteSwap(parsed.value));
+      setState({ busy: false });
+    } catch {
+      setState({ busy: false, unreachable: true });
+    }
+  };
+
+  const doSwap = async () => {
+    if (!signer || !quote) return;
+    setState({ busy: true });
+    try {
+      const hash = await signer.swapQorForFusd(quote);
+      setQuote(null);
+      setState({ busy: false, hash });
+      await queryClient.invalidateQueries({ queryKey: ["balances"] });
+    } catch (error) {
+      setState({ busy: false, error: explainError(error) });
+    }
+  };
+
+  return (
+    <details className="stack">
+      <summary className="small">{swapCopy.title}</summary>
+      <p className="small muted">{swapCopy.body}</p>
+      <div className="field">
+        <label htmlFor="swap-amount" className="small">
+          {swapCopy.amount}
+        </label>
+        <div className="input-suffix">
+          <input
+            id="swap-amount"
+            inputMode="decimal"
+            value={amount}
+            onChange={(e) => {
+              setAmount(e.target.value);
+              setQuote(null);
+            }}
+            aria-describedby="swap-hint"
+            aria-invalid={valid ? undefined : true}
+          />
+          <span className="small faint">QOR</span>
+        </div>
+        <span id="swap-hint" className="hint">
+          {valid ? swapCopy.amountHint : swapCopy.invalid}
+        </span>
+      </div>
+      {quote ? (
+        <p className="small" aria-live="polite">
+          {swapCopy.quote(formatAmount(quote.quote, 6, 6), formatAmount(quote.minOut, 6, 6))}
+        </p>
+      ) : null}
+      <div className="row">
+        {quote ? (
+          <button type="button" className="button small primary" disabled={state.busy} onClick={() => void doSwap()}>
+            {state.busy ? swapCopy.swapping : swapCopy.submit}
+          </button>
+        ) : (
+          <button type="button" className="button small quiet" disabled={!valid || state.busy} onClick={() => void getQuote()}>
+            {state.busy ? common.loading : swapCopy.getQuote}
+          </button>
+        )}
+      </div>
+      {state.unreachable ? <Notice tone="info">{swapCopy.unreachable}</Notice> : null}
+      {state.hash ? (
+        <Notice tone="ok" title={swapCopy.done}>
+          <NativeTxLink hash={state.hash} />
+        </Notice>
+      ) : null}
+      {state.error ? (
+        <Notice tone="danger" title={state.error.message}>
+          {state.error.detail ? <span className="mono wrap-anywhere">{state.error.detail}</span> : null}
+        </Notice>
+      ) : null}
+    </details>
+  );
+}
+
+export function AccountPanel({ vault }: { vault: VaultConfig }) {
   const { account, signer } = useSession();
   const client = useClient();
   const queryClient = useQueryClient();
-  const info = useVaultInfo();
-  const balances = useBalances(account?.evm);
+  const info = useVaultInfo(vault);
+  const balances = useBalances(account?.evm, vault);
   const window = useWindow();
-  const readiness = useReadiness();
+  const readiness = useReadiness(vault);
   const [opening, setOpening] = useState(false);
   const [windowError, setWindowError] = useState<ExplainedError | null>(null);
   const [windowTx, setWindowTx] = useState<string | null>(null);
@@ -75,7 +168,7 @@ export function AccountPanel() {
     try {
       const fees = await client.estimateFeesPerGas();
       const maxFee = fees.maxFeePerGas;
-      setWindowTx(await signer.openWindow([config.vault, info.data?.asset ?? config.asset], maxFee * 2n));
+      setWindowTx(await signer.openWindow([vault.address, info.data?.asset ?? config.asset], maxFee * 2n));
       await queryClient.invalidateQueries({ queryKey: ["evm-window"] });
     } catch (error) {
       setWindowError(explainError(error));
@@ -190,6 +283,7 @@ export function AccountPanel() {
           {windowError.detail ? <span className="mono wrap-anywhere">{windowError.detail}</span> : null}
         </Notice>
       ) : null}
+      <SwapForm />
       <div className="row">
         <button
           type="button"

@@ -1,31 +1,26 @@
 import { useState } from "react";
-import type { Address } from "viem";
+import { getAddress, isAddress, keccak256, maxUint256, stringToHex, type Address } from "viem";
 import type { ActionName } from "../chain/abi";
 import { explainError } from "../chain/errors";
-import { historyOf } from "../chain/events";
-import {
-  approve,
-  distribute,
-  harvest,
-  prepareAction,
-  sendSignedAction,
-  topUp,
-  triggerSuccession,
-  type PreparedAction,
-} from "../chain/write";
+import { historyOf, type VaultEvent } from "../chain/events";
+import { approve, distribute, harvest, prepareAction, sendSignedAction, topUp, triggerSuccession, type PreparedAction, type SpendParams, type WriteContext } from "../chain/write";
 import { AccountPanel, useReadiness } from "../components/AccountPanel";
 import { HeirsEditor } from "../components/HeirsEditor";
 import { useWritesAllowed } from "../components/Layout";
 import { SignDialog } from "../components/SignDialog";
 import { TxStatus, useTx } from "../components/tx";
-import { AddressText, Amount, Figure, Notice, Spinner, Status, TxHash } from "../components/ui";
-import { actions as actionCopy, common, intervals as intervalCopy, phases, position as copy } from "../copy";
+import { AddressText, Amount, Figure, formatAmount, Notice, shortAddress, Spinner, Status, TxHash } from "../components/ui";
+import { config, vaultById, type VaultConfig, type VaultId } from "../config";
+import { actions as actionCopy, common, intervals as intervalCopy, panel as copy, phases, vaultNames } from "../copy";
 import { parseDecimal } from "../lib/decimal";
 import { bpsToPercent, validateHeirs, type HeirDraft } from "../lib/heirs";
-import { formatDuration, formatRelative, formatUtc, INTERVALS, payableNow, payoutsCovered, timeline, type Phase } from "../lib/schedule";
-import { yieldOver } from "../lib/sizing";
-import { useBalances, useChainNow, useClient, usePosition, useVaultEvents, useVaultInfo } from "../state/queries";
+import { runwayHours, yieldPerHour } from "../lib/inference";
+import { formatDuration, formatRelative, formatUtc, INTERVALS, timeline, type Phase } from "../lib/schedule";
+import { useBalances, useBlockClock, useChainNow, useClient, usePosition, useVaultEvents, useVaultInfo } from "../state/queries";
 import { useSession } from "../state/session";
+
+const DECIMALS = 6;
+const DAY = 86_400n;
 
 const PHASE_TONE: Record<Phase, "ok" | "warn" | "danger" | "neutral"> = {
   active: "ok",
@@ -41,11 +36,32 @@ function intervalName(seconds: bigint): string {
   return match ? intervalCopy[match.id].label : formatDuration(seconds);
 }
 
-export function PositionPage({ id }: { id: bigint }) {
-  const position = usePosition(id);
-  const info = useVaultInfo();
+/** Spending recorded in the last day, using the measured block time to date each log. */
+export function lastDaySpending(
+  events: readonly VaultEvent[],
+  id: bigint,
+  clock: { number: bigint; timestamp: bigint; secondsPer1000Blocks: bigint } | undefined,
+): { amount: bigint; calls: number; perHour: bigint } | null {
+  if (!clock) return null;
+  let amount = 0n;
+  let calls = 0;
+  for (const e of events) {
+    if (e.kind !== "Spent" || e.positionId !== id) continue;
+    const age = ((clock.number - e.block) * clock.secondsPer1000Blocks) / 1_000n;
+    if (age > DAY) continue;
+    amount += e.amount;
+    calls += 1;
+  }
+  return { amount, calls, perHour: amount / 24n };
+}
+
+export function PositionPage({ vaultId, id }: { vaultId: VaultId; id: bigint }) {
+  const vault = vaultById(vaultId);
+  const position = usePosition(vault, id);
+  const info = useVaultInfo(vault);
   const now = useChainNow();
-  const events = useVaultEvents();
+  const events = useVaultEvents(vault);
+  const clock = useBlockClock();
   const { account } = useSession();
 
   if (position.isPending) {
@@ -57,7 +73,7 @@ export function PositionPage({ id }: { id: bigint }) {
   }
   if (position.isError) {
     const explained = explainError(position.error);
-    const missing = explained.detail?.startsWith("UnknownPosition");
+    const missing = /UnknownPosition/.test(`${explained.detail ?? ""} ${String(position.error)}`);
     return (
       <div className="page section stack">
         <p className="label">{copy.label(id.toString())}</p>
@@ -74,25 +90,23 @@ export function PositionPage({ id }: { id: bigint }) {
 
   const p = position.data;
   const s = p.state;
-  const decimals = info.data?.decimals ?? 6;
   const symbol = info.data?.symbol ?? "fUSD";
   const t = now.data ?? BigInt(Math.floor(Date.now() / 1000));
   const line = timeline(s, t, p.heirs.length);
-  const payable = payableNow(s, p.pendingYield, t);
-  const covered = payoutsCovered(s.buffer, s.payoutAmount);
-  const expected = info.data?.rateBps ? yieldOver(s.principal, info.data.rateBps, s.payoutInterval) : null;
-  const mine = (a: Address) => a === account?.evm || a === account?.nativeEvm;
   const history = events.data ? historyOf(events.data, id) : [];
-
-  // Timeline bar: from last check-in to succession, with "now".
-  const span = s.checkInPeriod + s.gracePeriod;
-  const pct = (v: bigint) => (span === 0n ? 0 : Math.min(100, Math.max(0, Number(((v - s.lastCheckIn) * 10_000n) / span) / 100)));
+  const spending = events.data ? lastDaySpending(events.data, id, clock.data) : null;
+  const earnPerHour = info.data?.rateBps ? yieldPerHour(s.principal, info.data.rateBps) : null;
+  const runway = spending ? runwayHours(s.buffer, spending.perHour) : null;
+  const mine = (a: Address) => a === account?.evm || a === account?.nativeEvm;
+  const capped = s.bufferCap !== maxUint256;
 
   return (
     <div className="page">
       <section className="section" aria-labelledby="position-title">
         <div className="stack" style={{ marginBottom: "var(--space-6)" }}>
-          <p className="label">{copy.status}</p>
+          <p className="label">
+            {vaultNames[vault.id].name} · {vaultNames[vault.id].rate}
+          </p>
           <div className="row" style={{ justifyContent: "space-between", alignItems: "baseline" }}>
             <h1 id="position-title" style={{ fontSize: "var(--size-h2)" }}>
               {copy.label(id.toString())}
@@ -100,85 +114,123 @@ export function PositionPage({ id }: { id: bigint }) {
             <Status tone={PHASE_TONE[line.phase]}>{phases[line.phase].name}</Status>
           </div>
           <p className="muted">{phases[line.phase].detail}</p>
+          {vault.accelerated ? <Notice tone="warn">{vaultNames.demo.note}</Notice> : null}
         </div>
+
+        <h2 className="label" style={{ marginBottom: "var(--space-3)" }}>
+          {copy.health}
+        </h2>
+        <dl className="ledger" style={{ marginBottom: "var(--space-6)" }}>
+          <div>
+            <dt>{copy.runway}</dt>
+            <dd>{s.closed ? actionCopy.unavailable.closed : runway === null ? copy.runwayIdle : copy.runwayValue(formatDuration(runway * 3_600n))}</dd>
+          </div>
+          <div>
+            <dt>{copy.earning}</dt>
+            <dd>
+              {earnPerHour !== null && spending ? (
+                <>
+                  {copy.earningValue(`${formatAmount(earnPerHour, DECIMALS, 6)} ${symbol}`, `${formatAmount(spending.perHour, DECIMALS, 6)} ${symbol}`)}
+                  <br />
+                  <span className="small faint">{spending.perHour <= earnPerHour ? copy.sustainable : copy.drawing}</span>
+                </>
+              ) : (
+                <span className="skeleton">…</span>
+              )}
+            </dd>
+          </div>
+          <div>
+            <dt>{copy.deadline}</dt>
+            <dd>
+              {s.closed || s.succeeded ? phases[line.phase].name : formatRelative(line.checkInDueAt, t)}
+              <br />
+              <span className="small faint">{formatUtc(line.checkInDueAt)}</span>
+            </dd>
+          </div>
+        </dl>
 
         <div className="figures">
           <Figure label={copy.principal} note={copy.principalNote}>
-            <Amount value={s.principal} decimals={decimals} unit={symbol} />
+            <Amount value={s.principal} decimals={DECIMALS} unit={symbol} />
           </Figure>
-          <Figure label={copy.buffer} note={copy.bufferNote}>
-            <Amount value={s.buffer} decimals={decimals} unit={symbol} fraction={4} />
+          <Figure label={copy.buffer} note={capped ? copy.bufferNote(`${formatAmount(s.bufferCap, DECIMALS, 6)} ${symbol}`) : copy.bufferNoCap}>
+            <Amount value={s.buffer} decimals={DECIMALS} unit={symbol} fraction={6} />
           </Figure>
           <Figure label={copy.pending} note={copy.pendingNote}>
-            <Amount value={p.pendingYield} decimals={decimals} unit={symbol} fraction={4} />
+            <Amount value={p.pendingYield} decimals={DECIMALS} unit={symbol} fraction={6} />
           </Figure>
-          <Figure label={copy.payableNow} note={s.closed ? actionCopy.unavailable.closed : line.periodsDue > 0n ? copy.due : `${copy.nextPayout} ${formatRelative(line.nextPayoutAt, t)}`}>
-            <Amount value={payable} decimals={decimals} unit={symbol} fraction={4} />
+          <Figure label={copy.spentDay} note={spending ? copy.callsNote(spending.calls.toString()) : undefined}>
+            {spending ? <Amount value={spending.amount} decimals={DECIMALS} unit={symbol} fraction={6} /> : <span className="skeleton">0000</span>}
           </Figure>
         </div>
+        {capped ? (
+          <p className="small muted" style={{ marginTop: "var(--space-3)" }}>
+            {copy.compoundingRule}
+          </p>
+        ) : null}
 
         <div className="split" style={{ marginTop: "var(--space-7)" }}>
           <div className="stack-lg">
-            <dl className="ledger">
-              <div>
-                <dt>{copy.payout}</dt>
-                <dd>
-                  {s.payoutAmount === 0n ? copy.payoutEverything : <Amount value={s.payoutAmount} decimals={decimals} unit={symbol} />} {copy.every}{" "}
-                  {intervalName(s.payoutInterval)}
-                </dd>
-              </div>
-              <div>
-                <dt>{copy.nextPayout}</dt>
-                <dd>
-                  {s.closed ? (
-                    actionCopy.unavailable.closed
-                  ) : (
-                    <>
-                      {line.periodsDue > 0n ? copy.due : formatRelative(line.nextPayoutAt, t)}
-                      <br />
-                      <span className="faint small">{formatUtc(line.nextPayoutAt)}</span>
-                    </>
-                  )}
-                </dd>
-              </div>
-              <div>
-                <dt>{copy.covered}</dt>
-                <dd>{covered === null ? copy.coveredEverything : covered === 0n ? copy.coveredNone : covered.toString()}</dd>
-              </div>
-              {expected !== null ? (
-                <div>
-                  <dt>{copy.expectedYield}</dt>
-                  <dd>
-                    <Amount value={expected} decimals={decimals} unit={symbol} fraction={4} />
-                    {s.payoutAmount > 0n ? (
-                      <>
-                        <br />
-                        <span className="faint small">{expected >= s.payoutAmount ? copy.selfFunding : copy.drawingDown}</span>
-                      </>
-                    ) : null}
-                  </dd>
+            <div className="stack">
+              <h2 className="label">{copy.ledger}</h2>
+              <p className="small muted">{copy.ledgerIntro}</p>
+              {events.isPending ? (
+                <Spinner />
+              ) : history.length === 0 ? (
+                <p className="muted small">{copy.ledgerEmpty}</p>
+              ) : (
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th scope="col">{copy.columns.what}</th>
+                        <th scope="col" className="num">
+                          {copy.columns.amount}
+                        </th>
+                        <th scope="col">{copy.columns.to}</th>
+                        <th scope="col">{copy.columns.ref}</th>
+                        <th scope="col" className="num">
+                          {copy.columns.block}
+                        </th>
+                        <th scope="col">{copy.columns.tx}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {history.map((e) => (
+                        <tr key={`${e.tx}-${e.logIndex.toString()}`}>
+                          <td>{copy.events[e.kind]}</td>
+                          <td className="num">{"amount" in e ? <Amount value={e.amount} decimals={DECIMALS} fraction={6} /> : null}</td>
+                          <td className="mono">{"to" in e ? shortAddress(e.to) : null}</td>
+                          <td className="mono">{"ref" in e ? <span title={e.ref}>{shortAddress(e.ref)}</span> : null}</td>
+                          <td className="num faint">{e.block.toString()}</td>
+                          <td>
+                            <TxHash hash={e.tx} short />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-              ) : null}
-            </dl>
+              )}
+            </div>
 
             <div className="stack">
-              <h2 className="label">{copy.status}</h2>
-              <div className="track" aria-hidden="true">
-                <div className="span-checkin" style={{ width: `${pct(line.checkInDueAt)}%` }} />
-                <div className="span-grace" style={{ left: `${pct(line.checkInDueAt)}%`, width: `${100 - pct(line.checkInDueAt)}%` }} />
-                {!s.succeeded && !s.closed ? <div className="now" style={{ left: `${pct(t)}%` }} /> : null}
-              </div>
+              <h2 className="label">{copy.schedule}</h2>
               <dl className="ledger small">
+                <div>
+                  <dt>{copy.payout}</dt>
+                  <dd>
+                    {s.payoutAmount === 0n ? copy.payoutEverything : <Amount value={s.payoutAmount} decimals={DECIMALS} unit={symbol} />} {copy.every} {intervalName(s.payoutInterval)}
+                  </dd>
+                </div>
+                <div>
+                  <dt>{copy.nextPayout}</dt>
+                  <dd>{s.closed ? actionCopy.unavailable.closed : line.periodsDue > 0n ? copy.due : formatRelative(line.nextPayoutAt, t)}</dd>
+                </div>
                 <div>
                   <dt>{copy.lastCheckIn}</dt>
                   <dd>
                     {formatRelative(s.lastCheckIn, t)} <span className="faint">· {formatUtc(s.lastCheckIn)}</span>
-                  </dd>
-                </div>
-                <div>
-                  <dt>{copy.checkInDue}</dt>
-                  <dd>
-                    {formatRelative(line.checkInDueAt, t)} <span className="faint">· {formatUtc(line.checkInDueAt)}</span>
                   </dd>
                 </div>
                 <div>
@@ -190,33 +242,33 @@ export function PositionPage({ id }: { id: bigint }) {
               </dl>
             </div>
 
-            <dl className="ledger small">
-              <div>
-                <dt>{copy.owner}</dt>
-                <dd>
-                  <AddressText address={s.owner} you={mine(s.owner)} />
-                </dd>
-              </div>
-              <div>
-                <dt>{copy.beneficiary}</dt>
-                <dd>
-                  <AddressText address={s.beneficiary} you={mine(s.beneficiary)} />
-                </dd>
-              </div>
-              <div>
-                <dt>{copy.closable}</dt>
-                <dd>{s.ownerCanClose ? copy.closableYes : copy.closableNo}</dd>
-              </div>
-              <div>
-                <dt>{copy.nonce}</dt>
-                <dd className="num">{s.nonce.toString()}</dd>
-              </div>
-            </dl>
-
             <div className="stack">
-              <h2 className="label">{copy.heirs}</h2>
+              <h2 className="label">{copy.roles}</h2>
+              <dl className="ledger small">
+                <div>
+                  <dt>{copy.owner}</dt>
+                  <dd>
+                    <AddressText address={s.owner} you={mine(s.owner)} />
+                  </dd>
+                </div>
+                <div>
+                  <dt>{copy.beneficiary}</dt>
+                  <dd>
+                    <AddressText address={s.beneficiary} you={mine(s.beneficiary)} />
+                  </dd>
+                </div>
+                <div>
+                  <dt>{copy.closable}</dt>
+                  <dd>{s.ownerCanClose ? copy.closableYes : copy.closableNo}</dd>
+                </div>
+                <div>
+                  <dt>{copy.nonce}</dt>
+                  <dd className="num">{s.nonce.toString()}</dd>
+                </div>
+              </dl>
+              <h3 className="label">{copy.heirs}</h3>
               {p.heirs.length === 0 ? (
-                <p className="muted">{copy.heirsNone}</p>
+                <p className="muted small">{copy.heirsNone}</p>
               ) : (
                 <dl className="ledger small">
                   {p.heirs.map((h) => (
@@ -230,39 +282,11 @@ export function PositionPage({ id }: { id: bigint }) {
                 </dl>
               )}
             </div>
-
-            <div className="stack">
-              <h2 className="label">{copy.history}</h2>
-              {events.isPending ? (
-                <Spinner />
-              ) : history.length === 0 ? (
-                <p className="muted small">{copy.historyEmpty}</p>
-              ) : (
-                <div className="table-wrap">
-                  <table>
-                    <tbody>
-                      {history.map((e) => (
-                        <tr key={`${e.tx}-${e.kind}`}>
-                          <td>{copy.events[e.kind]}</td>
-                          <td className="num">
-                            {"amount" in e ? <Amount value={e.amount} decimals={decimals} unit={symbol} fraction={4} /> : null}
-                          </td>
-                          <td className="num faint">#{e.block.toString()}</td>
-                          <td className="num">
-                            <TxHash hash={e.tx} short />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
           </div>
 
           <aside className="stack-lg">
-            <Actions id={id} />
-            {account ? <AccountPanel /> : null}
+            <Controls vault={vault} id={id} />
+            {account && vault.writable ? <AccountPanel vault={vault} /> : null}
           </aside>
         </div>
       </section>
@@ -270,15 +294,14 @@ export function PositionPage({ id }: { id: bigint }) {
   );
 }
 
-function Actions({ id }: { id: bigint }) {
-  const position = usePosition(id);
-  const info = useVaultInfo();
+function Controls({ vault, id }: { vault: VaultConfig; id: bigint }) {
+  const position = usePosition(vault, id);
   const now = useChainNow();
   const client = useClient();
   const { account, signer } = useSession();
-  const readiness = useReadiness();
-  const writesAllowed = useWritesAllowed();
-  const balances = useBalances(account?.evm);
+  const readiness = useReadiness(vault);
+  const writesAllowed = useWritesAllowed(vault);
+  const balances = useBalances(account?.evm, vault);
   const tx = useTx();
   const [prepared, setPrepared] = useState<PreparedAction | null>(null);
   const [preparing, setPreparing] = useState<ActionName | null>(null);
@@ -287,24 +310,37 @@ function Actions({ id }: { id: bigint }) {
   const [heirsTouched, setHeirsTouched] = useState(false);
   const [topUpAmount, setTopUpAmount] = useState("");
   const [confirmTrigger, setConfirmTrigger] = useState(false);
+  const [spendTo, setSpendTo] = useState("");
+  const [spendAmount, setSpendAmount] = useState("0.002");
+  const [spendRef, setSpendRef] = useState("");
 
   if (!position.data) return null;
+  if (!vault.writable) {
+    return (
+      <section className="stack" aria-labelledby="controls-title">
+        <h2 id="controls-title" className="label">
+          {copy.controls}
+        </h2>
+        <Notice tone="info">{copy.readOnly}</Notice>
+      </section>
+    );
+  }
+
   const s = position.data.state;
-  const decimals = info.data?.decimals ?? 6;
   const t = now.data ?? BigInt(Math.floor(Date.now() / 1000));
   const line = timeline(s, t, position.data.heirs.length);
   const canAct = account !== null && signer !== null && readiness.ready && writesAllowed && !tx.busy;
   const canSign = (a: Address) => signer?.canSignFor(a) ?? false;
 
-  const ctx = () => {
+  const ctx = (onStep: WriteContext["onStep"]): WriteContext => {
     if (!signer) throw new Error("locked");
-    return { client, wallet: signer.walletClient() };
+    return { client, wallet: signer.walletClient(), vault: vault.address, onStep };
   };
 
-  const startSigned = async (action: ActionName, signerAddress: Address, heirs?: { account: Address; bps: number }[]) => {
+  const startSigned = async (action: ActionName, signerAddress: Address, extra: { heirs?: { account: Address; bps: number }[]; spend?: SpendParams } = {}) => {
     setPreparing(action);
     try {
-      setPrepared(await prepareAction(client, { id, action, signer: signerAddress, heirs }));
+      setPrepared(await prepareAction(client, vault.address, { id, action, signer: signerAddress, ...extra }));
     } catch (error) {
       await tx.run("", () => Promise.reject(error instanceof Error ? error : new Error(String(error))));
     } finally {
@@ -321,16 +357,17 @@ function Actions({ id }: { id: bigint }) {
       Claim: actionCopy.claim.done,
       SetHeirs: actionCopy.setHeirs.done,
       Close: actionCopy.close.done,
+      Spend: actionCopy.spend.done,
     }[ready.request.action];
-    const hash = await tx.run(done, (onStep) => sendSignedAction({ ...ctx(), onStep }, ready, signer.signAction));
+    const hash = await tx.run(done, (onStep) => sendSignedAction(ctx(onStep), ready, signer.signAction));
     if (hash && ready.request.action === "SetHeirs") setEditingHeirs(false);
   };
 
-  // Why each action is unavailable, or null when it can be done.
   const closed = s.closed ? actionCopy.unavailable.closed : null;
   const locked = account ? null : actionCopy.unavailable.locked;
   const notBeneficiary = !canSign(s.beneficiary) ? actionCopy.unavailable.notRole("beneficiary") : null;
   const reasons = {
+    spend: closed ?? (s.succeeded ? actionCopy.unavailable.succeeded : null) ?? locked ?? notBeneficiary,
     harvest: closed ?? locked,
     claim: closed ?? (s.succeeded ? actionCopy.unavailable.succeeded : null) ?? (line.periodsDue === 0n ? actionCopy.unavailable.notDue : null) ?? locked ?? notBeneficiary,
     checkIn: closed ?? (s.succeeded ? actionCopy.unavailable.succeeded : null) ?? locked ?? notBeneficiary,
@@ -346,20 +383,32 @@ function Actions({ id }: { id: bigint }) {
   };
 
   const heirResult = validateHeirs(heirDrafts);
-  const topUpParsed = parseDecimal(topUpAmount, decimals);
+  const topUpParsed = parseDecimal(topUpAmount, DECIMALS);
   const topUpValue = topUpParsed.ok ? topUpParsed.value : 0n;
   const topUpNeedsApproval = (balances.data?.allowance ?? 0n) < topUpValue;
+  const spendParsed = parseDecimal(spendAmount, DECIMALS);
+  const spendValid = isAddress(spendTo.trim(), { strict: false }) && spendParsed.ok && spendParsed.value > 0n;
 
-  const actionRow = ({ name, label, hint, reason, onClick, danger, action }: { name: string; label: string; hint: string; reason: string | null; onClick: () => void; danger?: boolean; action?: ActionName }) => (
+  const actionRow = ({
+    name,
+    label,
+    hint,
+    reason,
+    onClick,
+    danger,
+    action,
+  }: {
+    name: string;
+    label: string;
+    hint: string;
+    reason: string | null;
+    onClick: () => void;
+    danger?: boolean;
+    action?: ActionName;
+  }) => (
     <div key={name} className="stack" style={{ gap: "var(--space-2)", paddingBottom: "var(--space-4)", borderBottom: "1px solid var(--rule)" }}>
-      <div className="row" style={{ justifyContent: "space-between" }}>
-        <button
-          type="button"
-          className={`button small ${danger ? "danger" : "quiet"}`}
-          onClick={onClick}
-          disabled={reason !== null || !canAct || preparing !== null}
-          aria-describedby={`${name}-hint`}
-        >
+      <div className="row">
+        <button type="button" className={`button small ${danger ? "danger" : "quiet"}`} onClick={onClick} disabled={reason !== null || !canAct || preparing !== null} aria-describedby={`${name}-hint`}>
           {action !== undefined && preparing === action ? common.loading : label}
         </button>
       </div>
@@ -370,68 +419,66 @@ function Actions({ id }: { id: bigint }) {
   );
 
   return (
-    <section className="stack" aria-labelledby="actions-title">
-      <h2 id="actions-title" className="label">
-        {copy.actions}
+    <section className="stack" aria-labelledby="controls-title">
+      <h2 id="controls-title" className="label">
+        {copy.controls}
       </h2>
-      {!account ? <Notice tone="info">{copy.actionsLocked}</Notice> : null}
+      {!account ? <Notice tone="info">{copy.controlsLocked}</Notice> : null}
       <TxStatus state={tx.state} onDismiss={tx.reset} />
 
-      {actionRow({ name: "harvest", label: actionCopy.harvest.label, hint: actionCopy.harvest.hint, reason: reasons.harvest, onClick: () => void tx.run(actionCopy.harvest.done, (onStep) => harvest({ ...ctx(), onStep }, id)) })}
-      {actionRow({ name: "claim", label: actionCopy.claim.label, action: "Claim", hint: actionCopy.claim.hint, reason: reasons.claim, onClick: () => void startSigned("Claim", s.beneficiary) })}
-      {actionRow({ name: "checkin", label: actionCopy.checkIn.label, action: "CheckIn", hint: actionCopy.checkIn.hint, reason: reasons.checkIn, onClick: () => void startSigned("CheckIn", s.beneficiary) })}
-
-      {actionRow({ name: "heirs", label: actionCopy.setHeirs.label, hint: actionCopy.setHeirs.hint, reason: reasons.setHeirs, onClick: () => {
-          setHeirDrafts(position.data.heirs.map((h) => ({ address: h.account, percent: bpsToPercent(h.bps) })));
-          setHeirsTouched(false);
-          setEditingHeirs((v) => !v);
-        } })}
-      {editingHeirs && reasons.setHeirs === null ? (
-        <form
-          className="stack"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setHeirsTouched(true);
-            if (heirResult.heirs) void startSigned("SetHeirs", s.beneficiary, heirResult.heirs);
-          }}
-        >
-          <HeirsEditor drafts={heirDrafts} onChange={setHeirDrafts} showErrors={heirsTouched} />
-          <div className="row">
-            <button type="submit" className="button small primary" disabled={!canAct}>
-              {actionCopy.setHeirs.label}
-            </button>
-            <button type="button" className="button small quiet" onClick={() => setEditingHeirs(false)}>
-              {common.cancel}
-            </button>
+      <form
+        className="stack"
+        style={{ gap: "var(--space-2)", paddingBottom: "var(--space-4)", borderBottom: "1px solid var(--rule)" }}
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!spendValid) return;
+          const ref = keccak256(stringToHex(spendRef.trim() === "" ? `perennial ${Date.now().toString()}` : spendRef.trim()));
+          void startSigned("Spend", s.beneficiary, { spend: { to: getAddress(spendTo.trim()), amount: spendParsed.value, ref } });
+        }}
+      >
+        <strong style={{ fontWeight: 600 }}>{copy.spend}</strong>
+        <span className="small faint">{reasons.spend ?? copy.spendHint}</span>
+        <label htmlFor="spend-to" className="small">
+          {copy.spendTo}
+        </label>
+        <input id="spend-to" className="mono" value={spendTo} placeholder="0x…" spellCheck={false} autoComplete="off" onChange={(e) => setSpendTo(e.target.value)} />
+        <div className="split even" style={{ gap: "var(--space-3)" }}>
+          <div className="field">
+            <label htmlFor="spend-amount" className="small">
+              {copy.spendAmount}
+            </label>
+            <input id="spend-amount" inputMode="decimal" value={spendAmount} onChange={(e) => setSpendAmount(e.target.value)} />
           </div>
-        </form>
-      ) : null}
-
-      {actionRow({ name: "trigger", label: confirmTrigger ? actionCopy.confirmTrigger : actionCopy.trigger.label, hint: actionCopy.trigger.hint, reason: reasons.trigger, danger: true, onClick: () => {
-          if (!confirmTrigger) {
-            setConfirmTrigger(true);
-            return;
-          }
-          setConfirmTrigger(false);
-          void tx.run(actionCopy.trigger.done, (onStep) => triggerSuccession({ ...ctx(), onStep }, id));
-        } })}
-      {actionRow({ name: "distribute", label: actionCopy.distribute.label, hint: actionCopy.distribute.hint, reason: reasons.distribute, onClick: () => void tx.run(actionCopy.distribute.done, (onStep) => distribute({ ...ctx(), onStep }, id)) })}
-      {actionRow({ name: "close", label: actionCopy.close.label, action: "Close", hint: actionCopy.close.hint, reason: reasons.close, danger: true, onClick: () => void startSigned("Close", s.owner) })}
+          <div className="field">
+            <label htmlFor="spend-ref" className="small">
+              {copy.spendRef}
+            </label>
+            <input id="spend-ref" value={spendRef} onChange={(e) => setSpendRef(e.target.value)} aria-describedby="spend-ref-hint" />
+          </div>
+        </div>
+        <span id="spend-ref-hint" className="small faint">
+          {copy.spendRefHint}
+        </span>
+        <span>
+          <button type="submit" className="button small primary" disabled={reasons.spend !== null || !canAct || !spendValid || preparing !== null}>
+            {preparing === "Spend" ? common.loading : actionCopy.spend.label}
+          </button>
+        </span>
+      </form>
 
       {!s.closed ? (
         <form
           className="stack"
-          style={{ gap: "var(--space-2)" }}
+          style={{ gap: "var(--space-2)", paddingBottom: "var(--space-4)", borderBottom: "1px solid var(--rule)" }}
           onSubmit={(e) => {
             e.preventDefault();
-            if (!topUpParsed.ok || topUpValue === 0n || !info.data) return;
-            const asset = info.data.asset;
-            if (topUpNeedsApproval) void tx.run(actionCopy.topUp.approved, (onStep) => approve({ ...ctx(), onStep }, asset, topUpValue));
-            else void tx.run(actionCopy.topUp.done, (onStep) => topUp({ ...ctx(), onStep }, id, topUpValue));
+            if (!topUpParsed.ok || topUpValue === 0n) return;
+            if (topUpNeedsApproval) void tx.run(actionCopy.topUp.approved, (onStep) => approve(ctx(onStep), config.asset, topUpValue));
+            else void tx.run(actionCopy.topUp.done, (onStep) => topUp(ctx(onStep), id, topUpValue));
           }}
         >
-          <label htmlFor="topup" className="small">
-            {copy.topUp}
+          <label htmlFor="topup">
+            <strong style={{ fontWeight: 600 }}>{copy.topUp}</strong>
           </label>
           <div className="input-suffix">
             <input id="topup" inputMode="decimal" value={topUpAmount} onChange={(e) => setTopUpAmount(e.target.value)} aria-describedby="topup-hint" />
@@ -445,12 +492,59 @@ function Actions({ id }: { id: bigint }) {
         </form>
       ) : null}
 
-      <SignDialog
-        prepared={prepared}
-        irreversible={prepared?.request.action === "Close"}
-        onCancel={() => setPrepared(null)}
-        onConfirm={() => void confirmSigned()}
-      />
+      {actionRow({ name: "claim", label: actionCopy.claim.label, action: "Claim", hint: actionCopy.claim.hint, reason: reasons.claim, onClick: () => void startSigned("Claim", s.beneficiary) })}
+      {actionRow({
+        name: "heirs",
+        label: actionCopy.setHeirs.label,
+        hint: actionCopy.setHeirs.hint,
+        reason: reasons.setHeirs,
+        onClick: () => {
+          setHeirDrafts(position.data.heirs.map((h) => ({ address: h.account, percent: bpsToPercent(h.bps) })));
+          setHeirsTouched(false);
+          setEditingHeirs((v) => !v);
+        },
+      })}
+      {editingHeirs && reasons.setHeirs === null ? (
+        <form
+          className="stack"
+          onSubmit={(e) => {
+            e.preventDefault();
+            setHeirsTouched(true);
+            if (heirResult.heirs) void startSigned("SetHeirs", s.beneficiary, { heirs: heirResult.heirs });
+          }}
+        >
+          <HeirsEditor drafts={heirDrafts} onChange={setHeirDrafts} showErrors={heirsTouched} />
+          <div className="row">
+            <button type="submit" className="button small primary" disabled={!canAct}>
+              {actionCopy.setHeirs.label}
+            </button>
+            <button type="button" className="button small quiet" onClick={() => setEditingHeirs(false)}>
+              {common.cancel}
+            </button>
+          </div>
+        </form>
+      ) : null}
+      {actionRow({ name: "close", label: actionCopy.close.label, action: "Close", hint: actionCopy.close.hint, reason: reasons.close, danger: true, onClick: () => void startSigned("Close", s.owner) })}
+      {actionRow({ name: "checkin", label: actionCopy.checkIn.label, action: "CheckIn", hint: actionCopy.checkIn.hint, reason: reasons.checkIn, onClick: () => void startSigned("CheckIn", s.beneficiary) })}
+      {actionRow({ name: "harvest", label: actionCopy.harvest.label, hint: actionCopy.harvest.hint, reason: reasons.harvest, onClick: () => void tx.run(actionCopy.harvest.done, (onStep) => harvest(ctx(onStep), id)) })}
+      {actionRow({
+        name: "trigger",
+        label: confirmTrigger ? actionCopy.confirmTrigger : actionCopy.trigger.label,
+        hint: actionCopy.trigger.hint,
+        reason: reasons.trigger,
+        danger: true,
+        onClick: () => {
+          if (!confirmTrigger) {
+            setConfirmTrigger(true);
+            return;
+          }
+          setConfirmTrigger(false);
+          void tx.run(actionCopy.trigger.done, (onStep) => triggerSuccession(ctx(onStep), id));
+        },
+      })}
+      {actionRow({ name: "distribute", label: actionCopy.distribute.label, hint: actionCopy.distribute.hint, reason: reasons.distribute, onClick: () => void tx.run(actionCopy.distribute.done, (onStep) => distribute(ctx(onStep), id)) })}
+
+      <SignDialog prepared={prepared} irreversible={prepared?.request.action === "Close"} onCancel={() => setPrepared(null)} onConfirm={() => void confirmSigned()} />
     </section>
   );
 }

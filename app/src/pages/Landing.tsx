@@ -1,8 +1,8 @@
 import { totals } from "../chain/events";
-import { Calculator } from "../components/Calculator";
-import { Amount, Figure, Notice, Spinner } from "../components/ui";
-import { addressUrl, config } from "../config";
-import { calculator, faq, hero, how, live, roles, simulated, uses } from "../copy";
+import { AgentCalculator } from "../components/AgentCalculator";
+import { Amount, Figure, Notice } from "../components/ui";
+import { addressUrl, config, type VaultConfig } from "../config";
+import { agentCalc, faq, hero, how, live, roles, simulated, uses, vaultNames, why } from "../copy";
 import { href } from "../router";
 import { usePrincipalHeld, useSourceReserve, useVaultEvents, useVaultInfo } from "../state/queries";
 
@@ -19,10 +19,10 @@ function Hero() {
           </h1>
           <p className="lede">{hero.lede}</p>
           <div className="row actions">
-            <a className="button primary" href={href({ name: "open" })}>
+            <a className="button primary" href={href({ name: "open", vault: config.defaultVault })}>
               {hero.primary}
             </a>
-            <a className="button quiet" href={href({ name: "positions" })}>
+            <a className="button quiet" href={href({ name: "positions", vault: config.defaultVault })}>
               {hero.secondary}
             </a>
           </div>
@@ -33,8 +33,8 @@ function Hero() {
           </p>
           <dl className="ledger">
             <div>
-              <dt>{hero.example.payout}</dt>
-              <dd>{hero.example.payoutValue}</dd>
+              <dt>{hero.example.deposit}</dt>
+              <dd>{hero.example.depositValue}</dd>
             </div>
             <div>
               <dt>{hero.example.rate}</dt>
@@ -44,9 +44,13 @@ function Hero() {
               <dt>{hero.example.margin}</dt>
               <dd>{hero.example.marginValue}</dd>
             </div>
+            <div>
+              <dt>{hero.example.hourly}</dt>
+              <dd>{hero.example.hourlyValue}</dd>
+            </div>
             <div className="total">
-              <dt>{hero.example.principal}</dt>
-              <dd>{hero.example.principalValue}</dd>
+              <dt>{hero.example.calls}</dt>
+              <dd>{hero.example.callsValue}</dd>
             </div>
           </dl>
           <p className="small faint" style={{ marginTop: "var(--space-3)" }}>
@@ -58,23 +62,22 @@ function Hero() {
   );
 }
 
-function LiveFigures() {
-  const info = useVaultInfo();
-  const events = useVaultEvents();
-  const held = usePrincipalHeld(info.data?.positionCount);
-  const reserve = useSourceReserve(info.data?.source, info.data?.asset, held.data);
-
+function VaultFigures({ vault }: { vault: VaultConfig }) {
+  const info = useVaultInfo(vault);
+  const events = useVaultEvents(vault);
+  const held = usePrincipalHeld(vault, info.data?.positionCount);
+  const reserve = useSourceReserve(vault, info.data?.source, info.data?.asset, held.data);
   const failed = info.isError || events.isError || held.isError;
   const decimals = info.data?.decimals ?? 6;
   const symbol = info.data?.symbol ?? "fUSD";
   const sums = events.data ? totals(events.data) : null;
+  const name = vaultNames[vault.id];
 
   return (
-    <section className="section" aria-labelledby="live-title">
-      <div className="section-head">
-        <p className="label">{live.label}</p>
-        <h2 id="live-title">{live.title}</h2>
-      </div>
+    <div className="stack">
+      <h3 style={{ fontSize: "var(--size-body)", fontFamily: "var(--font-text)", fontWeight: 600 }}>
+        {name.name} <span className="faint small">· {name.rate}</span>
+      </h3>
       {failed ? (
         <Notice tone="danger" title={live.error}>
           <button
@@ -95,48 +98,58 @@ function LiveFigures() {
           <Figure label={live.principal}>
             {held.data !== undefined ? <Amount value={held.data} decimals={decimals} unit={symbol} /> : <span className="skeleton">0000</span>}
           </Figure>
-          <Figure label={live.harvested}>
-            {sums ? <Amount value={sums.harvested} decimals={decimals} unit={symbol} fraction={4} /> : <span className="skeleton">0000</span>}
-          </Figure>
-          <Figure label={live.paidOut}>
-            {sums ? <Amount value={sums.paidOut} decimals={decimals} unit={symbol} fraction={4} /> : <span className="skeleton">0000</span>}
-          </Figure>
+          <Figure label={live.spends}>{sums ? <span className="num">{sums.spends.toString()}</span> : <span className="skeleton">00</span>}</Figure>
+          <Figure label={live.spent}>{sums ? <Amount value={sums.spent} decimals={decimals} unit={symbol} fraction={4} /> : <span className="skeleton">0000</span>}</Figure>
         </div>
       )}
-      {info.isPending ? (
-        <div style={{ marginTop: "var(--space-3)" }}>
-          <Spinner label={live.loading} />
-        </div>
-      ) : null}
-      <p className="small faint" style={{ marginTop: "var(--space-4)" }}>
-        {live.simulated} {live.contract}:{" "}
-        <a className="mono" href={addressUrl(config.vault)} target="_blank" rel="noreferrer">
-          {config.vault}
+      <p className="small faint">
+        {name.note} {live.contract}:{" "}
+        <a className="mono" href={addressUrl(vault.address)} target="_blank" rel="noreferrer">
+          {vault.address}
         </a>
         {reserve.data !== undefined ? (
           <>
             {" · "}
-            {simulated.reserveLabel}: <Amount value={reserve.data} decimals={decimals} unit={symbol} />
+            {live.reserveLabel}: <Amount value={reserve.data} decimals={decimals} unit={symbol} />
           </>
         ) : null}
       </p>
-    </section>
+    </div>
   );
 }
 
 export function Landing() {
+  const current = config.vaults.filter((v) => v.version === 2);
   return (
     <div className="page">
       <Hero />
-      <LiveFigures />
 
       <section className="section" aria-labelledby="sizing-title">
         <div className="section-head">
-          <p className="label">{calculator.label}</p>
-          <h2 id="sizing-title">{calculator.title}</h2>
-          <p className="lede">{calculator.intro}</p>
+          <p className="label">{agentCalc.label}</p>
+          <h2 id="sizing-title">{agentCalc.title}</h2>
+          <p className="lede">{agentCalc.intro}</p>
         </div>
-        <Calculator />
+        <AgentCalculator fundHref={(calls, price) => `${href({ name: "open", vault: config.defaultVault })}?calls=${calls}&price=${price}`} />
+      </section>
+
+      <section className="section" aria-labelledby="why-title">
+        <div className="section-head">
+          <p className="label">{why.label}</p>
+          <h2 id="why-title">{why.title}</h2>
+          <p className="lede">{why.body}</p>
+        </div>
+        <dl className="qa">
+          {why.roles.map((role) => (
+            <div key={role.who}>
+              <dt>{role.who}</dt>
+              <dd>{role.what}</dd>
+            </div>
+          ))}
+        </dl>
+        <p className="lede" style={{ marginTop: "var(--space-6)", color: "var(--ink)" }}>
+          {why.worstCase}
+        </p>
       </section>
 
       <section className="section" aria-labelledby="how-title">
@@ -152,6 +165,18 @@ export function Landing() {
             </li>
           ))}
         </ol>
+      </section>
+
+      <section className="section" aria-labelledby="live-title">
+        <div className="section-head">
+          <p className="label">{live.label}</p>
+          <h2 id="live-title">{live.title}</h2>
+        </div>
+        <div className="stack-lg">
+          {current.map((vault) => (
+            <VaultFigures key={vault.id} vault={vault} />
+          ))}
+        </div>
       </section>
 
       <section className="section" aria-labelledby="roles-title">

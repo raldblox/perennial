@@ -1,84 +1,94 @@
 /**
  * Every word the app shows, in one place.
  *
- * Contract terms (position, principal, buffer, beneficiary, heirs, succession,
- * check-in, harvest, distribute) mean exactly what they mean in
+ * Each section answers what, why and how, in that order. Contract terms
+ * (position, principal, buffer, buffer cap, beneficiary, heirs, succession,
+ * check-in, harvest, spend, distribute) mean exactly what they mean in
  * PerennialVault.sol. "Margin" is the sizing multiplier and is never called a
- * buffer. Risks are stated as plain facts.
+ * buffer. What is simulated is said where the number is shown.
  */
+import type { VaultId } from "./config";
 import type { Phase } from "./lib/schedule";
 
 export const brand = {
   name: "Perennial",
-  descriptor: "On-chain endowments with post-quantum signatures",
+  descriptor: "Deposit once. Its yield pays your agent's inference, call by call.",
   network: "Testnet",
 } as const;
 
 export const nav = {
   overview: "Overview",
-  open: "Open a position",
+  open: "Fund an agent",
   positions: "Positions",
   skip: "Skip to content",
   source: "Source",
 } as const;
 
+export const vaultNames: Record<VaultId, { name: string; rate: string; note: string }> = {
+  agent: {
+    name: "Standard vault",
+    rate: "5% a year, simulated",
+    note: "Pays a fixed 5% a year from a pre-funded test reserve. Nothing earns it.",
+  },
+  demo: {
+    name: "Demo vault: accelerated testnet rate",
+    rate: "accelerated testnet rate, simulated, not a return",
+    note: "Pays 15,768% a year, so 20 fUSD pays about 2.6 calls a minute during a demonstration. It is a test setting, never a return.",
+  },
+  v1: {
+    name: "Version 1 vault (read-only)",
+    rate: "5% a year, simulated",
+    note: "The first deployment, without spend or a buffer cap. Shown for reference; this page sends it nothing.",
+  },
+};
+
 export const hero = {
-  label: "On-chain endowment · QoreChain testnet",
-  headline: "Spend the income. Never the capital.",
-  headlineLines: ["Spend the income.", "Never the capital."],
+  label: "QoreChain testnet · the 5% is simulated",
+  headlineLines: ["Deposit once.", "The yield pays your agent's calls."],
+  headline: "Deposit once. The yield pays your agent's calls.",
   lede:
-    "Perennial keeps capital on chain and pays out only what it earns, on a schedule, to a beneficiary who checks in. Nobody holds the keys. Every instruction carries an ML-DSA-87 signature, so a classical key recovered by a quantum computer moves nothing.",
-  primary: "Open a position",
-  secondary: "Look up a position",
+    "500 fUSD at 5% a year pays for one 0.002 fUSD inference call every hour, for as long as the 5% holds. Your agent spends only what the deposit earns. The capital stays in the vault, and no classical key, stolen or recovered by a quantum computer, can move it.",
+  primary: "Fund an agent",
+  secondary: "See a position",
   example: {
-    label: "Example position",
-    payout: "Payout",
-    payoutValue: "400 fUSD a month",
-    rate: "Yield rate",
-    rateValue: "5% a year",
-    margin: "Margin",
-    marginValue: "1.15×",
-    principal: "Principal",
-    principalValue: "110,400 fUSD",
-    note: "Deposited once. Never paid out. Its yield pays the 400.",
+    label: "The arithmetic",
+    deposit: "Deposit",
+    depositValue: "500 fUSD",
+    rate: "Yield",
+    rateValue: "5% a year = 25 fUSD",
+    margin: "Margin 1.15",
+    marginValue: "21.74 fUSD spendable a year",
+    hourly: "Per hour",
+    hourlyValue: "0.00248 fUSD",
+    calls: "At 0.002 fUSD a call",
+    callsValue: "1.24 calls an hour",
+    note: "5,000 fUSD pays about twelve an hour. Exactly one an hour needs 402.96 fUSD.",
   },
 } as const;
 
-export const live = {
-  label: "The vault today",
-  title: "Read from the chain, not from us.",
-  opened: "Positions opened",
-  principal: "Principal held",
-  harvested: "Yield harvested",
-  paidOut: "Paid out",
-  loading: "Reading the vault",
-  error: "The vault could not be read. The testnet RPC may be unavailable.",
-  retry: "Try again",
-  contract: "Vault contract",
-  simulated: "Testnet tokens. The yield is simulated.",
-} as const;
-
-export const calculator = {
-  label: "Sizing",
-  title: "One equation decides the deposit.",
+export const agentCalc = {
+  label: "Size it",
+  title: "How much your agent needs.",
   intro:
-    "To pay C a year from yield at rate r, a position needs a principal of P = k × C ÷ r. The margin k is headroom: at 1.15 the yield can fall 13% before the payout outruns it.",
-  modePrincipal: "From payout to principal",
-  modePayout: "From principal to payout",
-  payout: "Payout",
-  every: "every",
-  principal: "Principal",
+    "Pick how often your agent calls a model and what a call costs. The deposit is the margin times a year of calls, divided by the yield rate.",
+  modeDeposit: "From calls to deposit",
+  modeCalls: "From deposit to calls",
+  callsPerHour: "Calls an hour",
+  price: "Price per call",
+  priceHint: "fUSD. A small model call costs about 0.002.",
+  deposit: "Deposit",
   rate: "Yield rate",
-  rateHint: "% a year. The testnet source pays 5%.",
+  rateHint: "% a year. The standard vault pays a simulated 5%.",
   margin: "Margin",
-  marginHint: "× the break-even principal.",
-  resultPrincipal: "Principal needed",
-  resultPayout: "Payout it supports",
-  perYear: "a year",
-  breakEven: "Break-even yield",
-  coverage: "Coverage",
-  invalid: "Enter amounts as plain numbers, the rate in percent and a margin of at least 1.",
-  formula: "P = k × C ÷ r",
+  marginHint: "× the break-even deposit. 1.15 lets the yield fall 13% before calls go unpaid.",
+  resultDeposit: "Deposit needed",
+  resultCalls: "Calls it pays an hour",
+  perYear: "Spent a year",
+  perDay: "Calls a day",
+  formula: "deposit = margin × calls a year × price ÷ rate",
+  invalid: "Enter calls and prices as plain numbers, the rate in percent and a margin of at least 1.",
+  fund: "Fund an agent with this",
+  anHour: "an hour",
 } as const;
 
 export const intervals = {
@@ -88,39 +98,69 @@ export const intervals = {
   yearly: { label: "year", adjective: "Yearly", hint: "365 days" },
 } as const;
 
+export const why = {
+  label: "Why",
+  title: "Your agent can pay its way without holding your money.",
+  body:
+    "An agent that calls a model needs to pay for every call. Giving it a funded wallet means giving it money it can lose. Perennial splits the roles so the agent never holds the capital.",
+  roles: [
+    { who: "You, the owner", what: "Deposit once, with a key you can keep offline. You may keep the right to close and take the capital back." },
+    { who: "Your agent, the beneficiary", what: "Has its own account and ML-DSA-87 key. It can spend the yield, call by call, and nothing else." },
+    { who: "Your heirs", what: "If the agent stops working, its income passes to them, for example back to you." },
+  ],
+  worstCase:
+    "If the agent's key is stolen, the most it can take is what the buffer holds at that moment, which the buffer cap bounds. Never the capital.",
+} as const;
+
 export const how = {
   label: "How it works",
-  title: "Four steps, then it runs on its own.",
+  title: "Four steps. The last two repeat for every call.",
   steps: [
     {
       title: "Deposit",
-      body: "The owner deposits fUSD once. It becomes the position's principal and goes straight into the yield source. A payout from the vault can never touch it.",
+      body: "You deposit fUSD once. It becomes the position's principal and goes into the yield source. Nothing in the vault can pay it out.",
     },
     {
-      title: "Harvest",
-      body: "Anyone can call harvest. It moves what the principal has earned, and only that, into the position's buffer.",
+      title: "Earn",
+      body: "The principal earns at the source's rate. A harvest, which anyone can call, moves what it has earned into the position's buffer.",
     },
     {
-      title: "Claim and check in",
-      body: "On schedule, the beneficiary signs a claim and the buffer pays them. A claim is also proof of life. Between claims a signed check-in does the same.",
+      title: "Spend",
+      body: "For each call, the agent signs a spend with its ML-DSA-87 key: who is paid, how much, and a reference to the request. Anyone can submit it; the vault pays from the buffer only.",
     },
     {
-      title: "Succession",
-      body: "If the beneficiary is silent for the check-in period and the grace period, anyone can trigger succession. From then on, the payouts are split between the heirs. The principal stays invested.",
+      title: "Compound",
+      body: "Yield above the buffer cap is added to the principal, so it keeps earning and can never be spent. If the agent stops spending and checking in, the income goes to its heirs.",
     },
   ],
+  compoundingRule: "Yield above the buffer cap is added to the principal, so it keeps earning and can never be spent.",
+} as const;
+
+export const live = {
+  label: "On chain now",
+  title: "Read from the vaults, not from us.",
+  opened: "Positions opened",
+  principal: "Principal held",
+  spends: "Calls paid",
+  spent: "Spent from yield",
+  loading: "Reading the vaults",
+  error: "The vaults could not be read. The testnet RPC may be unavailable.",
+  retry: "Try again",
+  contract: "Contract",
+  reserveLabel: "Test reserve left",
 } as const;
 
 export const roles = {
   label: "Who can do what",
   title: "Authority is a signature, not an address.",
   intro:
-    "Sensitive actions need an ML-DSA-87 signature from the role holder's registered key, checked inside the contract. Anyone may submit the transaction, and the money still goes where the position says.",
+    "Every action that moves money to someone needs an ML-DSA-87 signature from the role holder's registered key, checked inside the contract. Anyone may submit the transaction, and the money still goes where the signature says.",
   columns: { action: "Action", who: "Authorised by", note: "Note" },
   rows: [
     { action: "Open, top up", who: "Whoever pays", note: "The beneficiary must already hold a proven ML-DSA-87 key." },
-    { action: "Harvest", who: "Anyone", note: "Yield can only land in the position's buffer." },
-    { action: "Claim", who: "Beneficiary's signature", note: "Paid to the beneficiary, whoever submits it. Counts as a check-in." },
+    { action: "Harvest", who: "Anyone", note: "Yield lands in the buffer; above the cap, in the principal." },
+    { action: "Spend", who: "Beneficiary's signature", note: "Pays from the buffer to the signed recipient, for the signed amount and reference. Counts as a check-in." },
+    { action: "Claim", who: "Beneficiary's signature", note: "Pays the schedule to the beneficiary itself. Counts as a check-in." },
     { action: "Check in", who: "Beneficiary's signature", note: "Restarts the check-in period." },
     { action: "Change heirs", who: "Beneficiary's signature", note: "Signed over the new list. Not possible after succession." },
     { action: "Trigger succession", who: "Anyone, after the deadline", note: "Cannot be undone." },
@@ -128,61 +168,55 @@ export const roles = {
     { action: "Close", who: "Owner's signature", note: "Only if the owner kept the right when opening. Principal to the owner, buffer to the beneficiary or, after succession, the heirs." },
   ],
   footnote:
-    "The vault has no admin, no upgrade path and no pause. A signed action is bound to the chain, the vault, the position, the action, a nonce and an expiry, so it works once and nowhere else.",
+    "The vault has no admin, no upgrade path and no pause. A signature is bound to the chain, the vault, the position, the action, a nonce and an expiry, so it works once and nowhere else.",
 } as const;
 
 export const uses = {
-  label: "Uses",
-  title: "Anything that needs a small, steady income and a successor.",
-  note: "Principal at 5% a year and a 1.15 margin. At 4%, add a quarter.",
+  label: "Other uses",
+  title: "The same vault pays people, on a schedule.",
+  note: "Deposit at 5% a year with a 1.15 margin. At 4%, add a quarter.",
   items: [
-    { title: "An agent's running costs", body: "The agent's account is the beneficiary and claims its own income. Its operators are the heirs: if the agent stops checking in, the income returns to them.", payout: "250 a month", principal: "69,000" },
-    { title: "A parent's income", body: "Children fund a monthly income for a parent. When the parent stops checking in, it passes to the children.", payout: "400 a month", principal: "110,400" },
-    { title: "A personal income", body: "Your own capital, paid to you on a schedule, with your heirs named up front.", payout: "1,000 a month", principal: "276,000" },
-    { title: "A maintainer's stipend", body: "A community funds the person who keeps a library alive. If they stop checking in, the stipend passes to the next maintainers.", payout: "1,500 a month", principal: "414,000" },
-    { title: "A public good's fixed bill", body: "An endpoint, an archive or a domain that nobody budgets for, paid from the income of a fund that is never spent.", payout: "80 a month", principal: "22,080" },
+    { title: "A public good's fixed bill", body: "An endpoint or an archive nobody budgets for.", payout: "10 a month", principal: "2,760" },
+    { title: "A maintainer's stipend", body: "If they stop checking in, it passes to the next maintainers.", payout: "100 a month", principal: "27,600" },
+    { title: "A parent's allowance", body: "Paid monthly; passes to the children.", payout: "250 a month", principal: "69,000" },
   ],
   unit: "fUSD",
   payoutLabel: "Payout",
-  principalLabel: "Principal",
+  principalLabel: "Deposit",
 } as const;
 
 export const simulated = {
-  label: "What is simulated",
+  label: "Real and simulated",
   title: "Real signatures. Simulated yield.",
   items: [
-    { term: "Real", body: "The vault, the ML-DSA-87 signature checks, the schedule, the check-ins and succession all run on the QoreChain testnet exactly as written." },
-    { term: "Simulated", body: "The yield. The principal sits in a mock source that pays a fixed 5% a year out of a reserve someone funded in advance. Nothing earns it." },
-    { term: "Reserve", body: "If the mock's reserve runs out, harvests and claims fail until someone refills it." },
+    { term: "Real", body: "The vaults, the ML-DSA-87 checks, spends, the schedule, check-ins and succession, all on the QoreChain testnet." },
+    { term: "Simulated", body: "The yield. Each vault's principal sits in a mock that pays a fixed rate from a reserve someone funded. Nothing on QoreChain pays a real return a contract can collect yet." },
+    { term: "Accelerated", body: "The demo vault's rate, 15,768% a year, exists so a small deposit visibly pays several calls a minute. It is a test setting, never a return." },
     { term: "Tokens", body: "fUSD is the testnet's dollar token. It has no value." },
   ],
-  reserveLabel: "Mock reserve left",
 } as const;
 
 export const faq = {
   label: "Risks and questions",
-  title: "What you should know before opening one.",
+  title: "What you should know first.",
   items: [
-    { q: "Is this live on mainnet?", a: "No. Perennial runs on the QoreChain testnet only. The post-quantum precompiles it depends on are not active on QoreChain mainnet." },
-    { q: "Has it been audited?", a: "No. The contracts are open source and tested, including invariant tests, but no one has audited them." },
-    { q: "Where does the yield come from?", a: "On the testnet, from a mock that pays a fixed rate out of a pre-funded reserve. No real yield is earned. A real source would be an on-chain vault, and a real source can lose value." },
-    { q: "What if the yield source loses value?", a: "The position earns nothing until the source recovers. The vault never tops up the principal from anywhere." },
-    { q: "Can I get my principal back?", a: "Only if you kept the right to close when you opened the position. Without it, the principal can never be withdrawn by anyone, including you." },
-    { q: "What if the buffer cannot fund a payout?", a: "That period is paid in part, from what the buffer holds, and the shortfall is not carried over. Payouts never exceed what the principal has earned." },
-    { q: "What happens if the beneficiary stops checking in?", a: "After the check-in period and the grace period, anyone can trigger succession. It cannot be undone. The payouts then go to the heirs by weight." },
-    { q: "And if there are no heirs?", a: "Succession cannot happen. The income stays in the buffer, and only the beneficiary can claim it." },
-    { q: "Who holds the keys?", a: "Nobody. The vault has no admin and no upgrade path. Every sensitive action needs the role holder's own ML-DSA-87 signature." },
-    { q: "What does a quantum computer change?", a: "It could recover a classical secp256k1 key from its public key. In Perennial that key alone can claim nothing, check in for no one, change no heirs and close nothing. A stolen ML-DSA-87 key is a different matter: it can do whatever its role allows." },
-    { q: "How does this page sign?", a: "With a key derived from a recovery phrase you type into this tab. The page derives the account's keys from it and then clears the phrase. The keys stay in the tab's memory, are never stored or sent, and are dropped when you lock, after 15 minutes idle or when the tab closes. Anyone who controls this page's code while it is unlocked can sign as that account. Use a phrase made for the testnet." },
+    { q: "Is this live on mainnet?", a: "No. Perennial runs on the QoreChain testnet. The post-quantum precompiles it depends on are not active on QoreChain mainnet." },
+    { q: "Has it been audited?", a: "No. The contracts are open source and tested, including fuzz and invariant tests, but no one has audited them." },
+    { q: "Where does the yield come from?", a: "On the testnet, from a mock that pays a fixed rate out of a pre-funded reserve. Nothing on QoreChain today pays a real return that a contract can collect. A real source would be an ERC-4626 vault, and a real source can lose value." },
+    { q: "What if my agent's key is stolen?", a: "The thief can spend what the buffer holds, up to its cap, and, holding that key, can also change the heirs. Not the principal. If you kept the right to close, close the position: the principal returns to you." },
+    { q: "What if a classical key is recovered by a quantum computer?", a: "Alone, it can spend nothing, check in for no one, change no heirs and close nothing. Every one of those needs the role holder's ML-DSA-87 signature." },
+    { q: "What happens to yield the agent does not spend?", a: "Up to the buffer cap it waits in the buffer. Above the cap it is added to the principal, keeps earning, and can never be spent; it returns to the owner only on close." },
+    { q: "Can I get my deposit back?", a: "Only if you kept the right to close when you opened the position. Without it, the principal can never be withdrawn by anyone, including you." },
+    { q: "What if the agent stops?", a: "Spends and claims count as check-ins. After the check-in period and the grace period, anyone can trigger succession, which cannot be undone; the income then goes to the heirs." },
+    { q: "Does the agent need QOR for fees?", a: "No. A spend is a signature; whoever submits it pays the fee, so a relayer can pay for the agent." },
+    { q: "How does this page sign?", a: "With keys derived from a recovery phrase you type into this tab. The page clears the phrase, keeps the keys in the tab's memory, never stores or sends them, and drops them when you lock, after 15 minutes idle or when the tab closes. Anyone who controls this page's code while it is unlocked can sign as that account. Use a testnet-only phrase." },
   ],
 } as const;
 
 export const footer = {
-  line: "Open source under the MIT licence. Testnet only. Unaudited.",
+  line: "Open source under the MIT licence. Testnet only. Unaudited. Yield simulated.",
   explorer: "The QoreChain explorer opens on mainnet: use its Testnet switch. It does not look up EVM transaction hashes yet, so this page shows them in full.",
-  vault: "Vault",
   asset: "Asset",
-  source: "Yield source",
   code: "Code and documentation",
 } as const;
 
@@ -226,19 +260,33 @@ export const account = {
   windowUnknown: "Cannot be read from this site",
   windowScope: "Limited to",
   windowAny: "any contract",
-  openWindow: "Open a window for Perennial",
+  openWindow: "Open a window for this vault",
   openingWindow: "Opening the window",
-  windowOpened: "Window opened, limited to the vault and fUSD.",
+  windowOpened: "Window opened, limited to this vault and fUSD.",
   closeWindow: "Close the window",
   autoLock: "Locks after 15 minutes without activity.",
   refresh: "Refresh",
   faucet: "Testnet faucet",
 } as const;
 
+export const swap = {
+  title: "Get fUSD with QOR",
+  body: "Swap QOR for fUSD in QoreChain's native AMM (pool 2). The page converts the guaranteed minimum into the token the vault takes, in the same transaction.",
+  amount: "QOR to swap",
+  amountHint: "At most 1 QOR.",
+  quote: (out: string, min: string) => `About ${out} fUSD; at least ${min} fUSD, or nothing happens.`,
+  getQuote: "Get a quote",
+  submit: "Swap",
+  swapping: "Swapping",
+  done: "Swapped.",
+  unreachable: "This site cannot reach the chain's native API, so it cannot swap. Run pnpm swap in the contracts folder instead.",
+  invalid: "Enter an amount above 0 and at most 1.",
+} as const;
+
 export const unlock = {
   title: "Unlock an account",
   intro:
-    "The QoreX wallet cannot yet sign arbitrary messages or EVM transactions for a web page, so this page signs with a key derived from your recovery phrase.",
+    "The QoreX wallet cannot yet sign arbitrary messages or EVM transactions for a web page, so this page signs with keys derived from your recovery phrase.",
   points: [
     "The page derives this account's keys from the phrase, then clears the phrase. The keys stay in this tab's memory. Neither is stored, sent anywhere or logged.",
     "The keys are dropped when you lock, after 15 minutes without activity, and when you close or reload the tab.",
@@ -247,7 +295,7 @@ export const unlock = {
   ],
   phrase: "Recovery phrase",
   phraseHint: "12 or 24 words, separated by spaces.",
-  consent: "I understand the page holds this key while it is unlocked, and this is a testnet-only phrase.",
+  consent: "I understand the page holds these keys while it is unlocked, and this is a testnet-only phrase.",
   submit: "Unlock",
   deriving: "Deriving keys",
   invalid: "That is not a valid recovery phrase. Check the words and their order.",
@@ -267,7 +315,7 @@ export const requirements = {
   },
   noWindow: {
     title: "Open an EVM window",
-    body: "QoreChain admits EVM transactions only while the sending account has an open window, a permission signed with its post-quantum key. This page opens one limited to the vault and fUSD, for about an hour and a few transactions.",
+    body: "QoreChain admits EVM transactions only while the sending account has an open window, a permission signed with its post-quantum key. This page opens one limited to this vault and fUSD, for about an hour and six transactions.",
   },
   windowUnreachable: {
     title: "This site cannot open the window",
@@ -279,46 +327,55 @@ export const requirements = {
   },
   noToken: {
     title: "Get fUSD",
-    body: "This account holds no fUSD. The faucet pays fUSD as a native coin, which contracts cannot see: it has to be converted to the ERC-20 token, with the chain's MsgConvertCoin message sent to this account's 0x address, before it can be deposited.",
+    body: "This account holds no fUSD the vault can take. Swap QOR for it below, or use the faucet: faucet fUSD arrives as a native coin and has to be converted (MsgConvertCoin) before a contract can see it.",
   },
 } as const;
 
-export const open = {
-  label: "New position",
-  title: "Open a position",
-  intro: "The deposit becomes the principal. It is never paid out. Its yield funds the payouts on the schedule below.",
-  steps: ["Terms", "Heirs", "Review"],
-  amount: "Principal",
-  amountHint: "Deposited once, in fUSD.",
+export const fund = {
+  label: "Fund an agent",
+  title: "Fund your agent's inference",
+  intro:
+    "Your deposit becomes the principal and is never spent. Its yield pays your agent's calls. Pick the agent, how often it calls, and what a call costs.",
+  steps: ["Agent and deposit", "Heirs", "Review"],
+  vault: "Vault",
+  vaultHint: "The demo vault's rate is an accelerated test setting, not a return.",
+  agent: "Agent account (beneficiary)",
+  agentHint: "The account that signs your agent's spends. It needs a registered ML-DSA-87 key with proven possession.",
+  agentUseEvm: "This account",
+  agentUseNative: "Its Native account",
+  callsPerHour: "Calls an hour",
+  price: "Price per call",
+  suggested: (deposit: string) => `At this vault's rate and a 1.15 margin, that needs ${deposit} fUSD.`,
+  useSuggested: "Use this deposit",
+  amount: "Deposit",
+  amountHint: "Becomes the principal. Never spent.",
+  pays: (calls: string, perMinute: string) => `This deposit pays about ${calls} ${calls === "1" ? "call" : "calls"} an hour (${perMinute} a minute) at this price.`,
   balance: "Balance",
   useMax: "Use all",
-  beneficiary: "Beneficiary",
-  beneficiaryHint: "Receives the payouts. Must already hold a registered ML-DSA-87 key with proven possession.",
-  beneficiaryUseEvm: "This account",
-  beneficiaryUseNative: "Its Native account",
-  payout: "Payout per interval",
-  payoutHint: "Leave at 0 to pay out everything in the buffer each time.",
+  cap: "Buffer cap",
+  capHint: "Most the buffer keeps for the agent to spend. Suggested: a day of calls.",
+  capRule: "Yield above the buffer cap is added to the principal, so it keeps earning and can never be spent.",
+  capUseDay: "A day of calls",
+  capNever: "Never compound",
+  advanced: "Schedule and safety",
+  payout: "Claim to the agent per interval",
+  payoutHint: "Separate from spends. Leave at 0 to let the agent claim everything in the buffer once per interval.",
   payoutEverything: "Everything in the buffer",
-  interval: "Payout interval",
+  interval: "Claim interval",
   checkInPeriod: "Check-in period",
-  checkInHint: "How long the beneficiary may go without a claim or check-in.",
+  checkInHint: "How long the agent may go without a spend, claim or check-in.",
   grace: "Grace period",
   graceHint: "Extra time after a missed check-in before succession opens.",
   days: "days",
   ownerCanClose: "Keep the right to close",
   ownerCanCloseOn:
-    "You can later close the position with your own signature: the principal returns to you and the buffer to the beneficiary, or to the heirs after succession. Your account needs a registered ML-DSA-87 key.",
+    "You can later close the position with your own signature: the principal, including anything compounded, returns to you and the buffer to the agent, or to the heirs after succession. Your account needs a registered ML-DSA-87 key.",
   ownerCanCloseOff:
-    "The position is permanent. Nobody, including you, can ever withdraw the principal. Only its income leaves the vault.",
-  ownerCanCloseNote: "This choice is fixed at opening and cannot be changed.",
-  sizing: "Sizing check",
-  sizingNeeds: (principal: string) => `At the source's rate and a 1.15 margin, this payout needs ${principal} fUSD.`,
-  sizingShort: "The principal is smaller than the payout needs. The buffer will run short and periods will be paid in part.",
-  sizingOk: "The principal covers the payout with margin.",
-  sizingEverything: "Each payout is whatever the buffer holds.",
+    "The position is permanent. Nobody, including you, can ever withdraw the principal. Only its yield leaves the vault.",
+  ownerCanCloseNote: "Fixed at opening.",
   heirsTitle: "Heirs",
-  heirsIntro: "After succession, each payout is split between the heirs by weight. Weights must total 100%.",
-  heirsNone: "No heirs. If the beneficiary stops checking in, nothing happens: the income stays in the buffer.",
+  heirsIntro: "If the agent stops, the income goes to the heirs by weight, for example back to you. Weights must total 100%.",
+  heirsNone: "No heirs. If the agent stops, nothing happens: the income stays in the buffer and compounds.",
   addHeir: "Add an heir",
   removeHeir: "Remove",
   heirAddress: "Heir address",
@@ -326,25 +383,30 @@ export const open = {
   split: "Split evenly",
   total: "Total",
   review: "Review",
-  reviewIntro: "Check every line. After opening, only the heirs can be changed, and only by the beneficiary.",
-  approve: "Approve fUSD",
+  reviewIntro: "Check every line. After opening, only the heirs can be changed, and only by the agent's key.",
+  approve: "Approve exactly",
   approving: "Approving",
   submit: "Open position",
   submitting: "Opening",
   opened: (id: string) => `Position ${id} is open.`,
-  view: "View the position",
+  view: "Open its control panel",
   needsAccount: "Unlock an account to open a position. Everything else on this page works without one.",
+  readOnlyVault: "This vault is read-only here.",
   errors: {
-    amount: "Enter a principal above zero, with at most 6 decimals.",
-    balance: "The principal is more than this account's fUSD balance.",
+    amount: "Enter a deposit above zero, with at most 6 decimals.",
+    balance: "The deposit is more than this account's fUSD balance.",
     beneficiary: "Enter a valid 0x address.",
     beneficiaryKey: "This address has no registered ML-DSA-87 key with proven possession. The vault would refuse to open.",
-    payout: "Enter a payout of zero or more, with at most 6 decimals.",
+    payout: "Enter an amount of zero or more, with at most 6 decimals.",
     days: "Enter a whole number of days, at least 1.",
     graceDays: "Enter a whole number of days, 0 or more.",
     ownerKey: "Your account needs a registered ML-DSA-87 key with proven possession to keep the right to close.",
+    cap: "Enter a cap of zero or more, with at most 6 decimals.",
   },
 } as const;
+
+/** Kept for the heirs editor, which is shared by the fund form and the control panel. */
+export const open = fund;
 
 export const heirErrors = {
   "address-missing": "Enter an address.",
@@ -360,6 +422,7 @@ export const heirErrors = {
 export const positions = {
   label: "Positions",
   title: "Find a position",
+  vault: "Vault",
   byId: "Position number",
   go: "Open",
   byAddress: "Positions for an address",
@@ -373,43 +436,51 @@ export const positions = {
   invalidAddress: "Enter a valid 0x address.",
   columns: { id: "Position", role: "Role", principal: "Principal", status: "Status" },
   roleNames: { owner: "owner", beneficiary: "beneficiary", heir: "heir" },
-  all: "All positions",
+  all: "All positions in this vault",
+  none: "No positions yet.",
 } as const;
 
 export const phases: Record<Phase, { name: string; detail: string }> = {
   active: { name: "Active", detail: "The beneficiary is within the check-in period." },
-  grace: { name: "Check-in overdue", detail: "The check-in period has passed. The grace period is running; a check-in or claim still restores the position." },
-  "succession-open": { name: "Succession open", detail: "The check-in and grace periods have both passed. Anyone can now trigger succession, unless the beneficiary checks in first." },
-  stalled: { name: "Silent, no heirs", detail: "The deadline has passed, but there are no heirs, so succession cannot happen. Only the beneficiary can claim." },
-  succeeded: { name: "Succeeded", detail: "The beneficiary missed the deadline and succession was triggered. Payouts now go to the heirs." },
+  grace: { name: "Check-in overdue", detail: "The check-in period has passed. The grace period is running; a spend, claim or check-in still restores the position." },
+  "succession-open": { name: "Succession open", detail: "The check-in and grace periods have both passed. Anyone can now trigger succession, unless the beneficiary acts first." },
+  stalled: { name: "Silent, no heirs", detail: "The deadline has passed, but there are no heirs, so succession cannot happen." },
+  succeeded: { name: "Succeeded", detail: "The beneficiary missed the deadline and succession was triggered. The income now goes to the heirs." },
   closed: { name: "Closed", detail: "The owner closed this position. Its principal was returned." },
 };
 
-export const position = {
+export const panel = {
   label: (id: string) => `Position ${id}`,
   notFound: (id: string) => `There is no position ${id} in this vault.`,
+  health: "Health",
+  runway: "Buffer runway",
+  runwayValue: (hours: string) => `${hours} at the last day's spending`,
+  runwayIdle: "No spends in the last day",
+  earning: "Earning against spending",
+  earningValue: (earn: string, spend: string) => `${earn} an hour earned, ${spend} an hour spent over the last day`,
+  sustainable: "The yield covers the spending.",
+  drawing: "Spending is above the yield: the buffer is shrinking.",
+  deadline: "Check-in deadline",
   principal: "Principal",
-  principalNote: "Never paid out.",
+  principalNote: "Never spent.",
   buffer: "Buffer",
-  bufferNote: "Harvested yield, waiting to be paid.",
+  bufferNote: (cap: string) => `Cap ${cap}.`,
+  bufferNoCap: "No cap: never compounds.",
   pending: "Pending yield",
   pendingNote: "Earned, not yet harvested.",
-  payableNow: "Payable now",
-  payout: "Payout",
+  spentDay: "Spent, last day",
+  callsNote: (calls: string) => `${calls} payments`,
+  compoundingRule: "Yield above the buffer cap is added to the principal, so it keeps earning and can never be spent.",
+  schedule: "Schedule",
+  payout: "Claim to the beneficiary",
   payoutEverything: "Everything in the buffer",
   every: "every",
-  nextPayout: "Next payout",
+  nextPayout: "Next claim",
   due: "Due now",
-  covered: "Payouts the buffer covers",
-  coveredNone: "Not one full payout yet",
-  coveredEverything: "Each payout is the whole buffer",
-  expectedYield: "Expected yield per interval",
-  selfFunding: "The expected yield covers the payout.",
-  drawingDown: "The expected yield is less than the payout. Payouts will be partial once the buffer is empty.",
   checkInDue: "Check-in due",
   successionAt: "Succession possible after",
   lastCheckIn: "Last check-in",
-  status: "Status",
+  roles: "Roles",
   owner: "Owner",
   beneficiary: "Beneficiary",
   closable: "Owner can close",
@@ -418,20 +489,29 @@ export const position = {
   nonce: "Signed actions so far",
   heirs: "Heirs",
   heirsNone: "No heirs. Succession cannot happen.",
-  history: "History",
-  historyEmpty: "No events yet.",
-  actions: "Actions",
-  actionsLocked: "Unlock an account to act. Harvest, trigger succession and distribute work from any account; the others need the role holder's signature.",
-  readOnlyNote: "You are viewing this position read-only.",
+  ledger: "Ledger",
+  ledgerIntro: "Every harvest, spend, claim, top-up and compounding, with its transaction and reference.",
+  ledgerEmpty: "Nothing yet.",
+  columns: { what: "What", amount: "Amount", to: "To", ref: "Reference", block: "Block", tx: "Transaction" },
+  controls: "Controls",
+  controlsLocked: "Unlock an account to act. Harvest, trigger succession and distribute work from any account; the others need the role holder's signature.",
+  readOnly: "This vault is read-only here.",
   topUp: "Add principal",
-  topUpHint: "Anyone can add principal. It is never paid out.",
-  updated: "Updated",
+  topUpHint: "Anyone can add principal. It is never spent.",
+  spend: "Send a payment",
+  spendHint: "Pays from the buffer, signed with the beneficiary's key. This is what an agent does for each call.",
+  spendTo: "Pay to",
+  spendAmount: "Amount",
+  spendRef: "Reference",
+  spendRefHint: "What the payment is for, such as a request id. It is hashed into the signed reference.",
   events: {
     Opened: "Opened",
     ToppedUp: "Principal added",
     HeirsSet: "Heirs set",
     Harvested: "Harvested",
     Claimed: "Claimed",
+    Spent: "Spent",
+    Compounded: "Compounded",
     Distributed: "Distributed to heirs",
     CheckedIn: "Checked in",
     SuccessionTriggered: "Succession triggered",
@@ -440,17 +520,18 @@ export const position = {
 } as const;
 
 export const actions = {
-  harvest: { label: "Harvest", hint: "Moves pending yield into the buffer. Anyone can.", done: "Harvested." },
-  claim: { label: "Claim", hint: "Pays what the schedule owes to the beneficiary. Also counts as a check-in.", done: "Claimed." },
+  harvest: { label: "Harvest", hint: "Moves pending yield into the buffer; above the cap, into the principal. Anyone can.", done: "Harvested." },
+  spend: { label: "Send", done: "Paid." },
+  claim: { label: "Claim to self", hint: "Pays what the schedule owes to the beneficiary itself. Counts as a check-in.", done: "Claimed." },
   checkIn: { label: "Check in", hint: "Proves the beneficiary is there and restarts the check-in period.", done: "Checked in." },
-  setHeirs: { label: "Change heirs", hint: "Replaces the heirs. Counts as a check-in.", done: "Heirs updated." },
+  setHeirs: { label: "Change heirs", hint: "Replaces the heirs. Signed by the beneficiary. Counts as a check-in.", done: "Heirs updated." },
   trigger: { label: "Trigger succession", hint: "Hands the income to the heirs. Cannot be undone.", done: "Succession triggered." },
   distribute: { label: "Distribute", hint: "Pays the scheduled amount to the heirs by weight. Anyone can.", done: "Distributed." },
   close: { label: "Close position", hint: "Returns the principal to the owner and the buffer to the beneficiary, or to the heirs after succession. Ends the position.", done: "Position closed." },
-  topUp: { label: "Add principal", approve: "Approve fUSD", approved: "fUSD approved. Now add it.", done: "Principal added." },
+  topUp: { label: "Add principal", approve: "Approve exactly", approved: "fUSD approved. Now add it.", done: "Principal added." },
   confirmTrigger: "Confirm: trigger succession",
   unavailable: {
-    notDue: "No payout is due yet.",
+    notDue: "No claim is due yet.",
     succeeded: "Not possible after succession.",
     notSucceeded: "Only after succession.",
     notOpen: "Not possible before the deadline.",
@@ -459,6 +540,7 @@ export const actions = {
     notRole: (role: string) => `Needs the ${role}'s signature, and the unlocked phrase is not the ${role}'s.`,
     locked: "Unlock an account first.",
     closed: "The position is closed.",
+    readOnly: "This vault is read-only here.",
   },
 } as const;
 
@@ -478,6 +560,8 @@ export const signing = {
   confirm: "Sign and send",
   irreversible: "This cannot be undone.",
   heirsHash: (count: number) => `Hash of ${count} heir${count === 1 ? "" : "s"}`,
+  spendSummary: (amount: string, to: string, ref: string) => `${amount} fUSD to ${to}, reference ${ref}`,
+  actionNames: { CheckIn: "Check in", Claim: "Claim to self", SetHeirs: "Change heirs", Close: "Close position", Spend: "Spend from the buffer" },
 } as const;
 
 export const tx = {
@@ -497,7 +581,7 @@ export const errors = {
   network: "The network did not answer. Check your connection and try again.",
   wrongNetwork: (expected: number, actual: number) =>
     `The configured RPC is on chain ${actual}, not ${expected}. Nothing will be sent until this is fixed.`,
-  assetMismatch: "The vault's asset is not the configured fUSD address. Writing is disabled until the configuration matches.",
+  assetMismatch: "A vault's asset is not the configured fUSD address. Writing is disabled until the configuration matches.",
   window: {
     "no-pqc-key": "This account has no registered ML-DSA-87 key, so the chain refuses its EVM transactions.",
     "no-window": "This account has no open EVM window, so the chain refused the transaction. Open one and try again.",
@@ -508,7 +592,7 @@ export const errors = {
   contract: {
     ZeroAddress: "An address is missing.",
     ZeroAmount: "The amount must be above zero.",
-    ZeroPeriod: "The payout interval and check-in period must be above zero.",
+    ZeroPeriod: "The claim interval and check-in period must be above zero.",
     AssetMismatch: "The yield source holds a different asset.",
     UnsupportedToken: "The token delivered less than was sent. Fee-on-transfer tokens are not supported.",
     UnknownPosition: "There is no such position.",
@@ -519,17 +603,18 @@ export const errors = {
     HeirWeightsMustTotalBps: "The heirs' shares must total exactly 100%.",
     SignatureExpired: "The signature expired before the transaction was included. Sign again.",
     PositionSucceeded: "Succession has already happened.",
-    PayoutNotDue: "No payout is due yet.",
+    PayoutNotDue: "No claim is due yet.",
     PositionNotSucceeded: "Succession has not happened.",
     SuccessionNotDue: "The succession deadline has not passed.",
     NoHeirs: "The position has no heirs.",
     CloseNotAllowed: "The owner did not keep the right to close.",
+    InsufficientBuffer: "The buffer does not hold that much yet. Wait for more yield, or spend less.",
     PQCUnavailable: "The chain's post-quantum precompile did not answer.",
     PQCKeyNotRegistered: "The account has no registered ML-DSA-87 key.",
     PQCKeyUnsupported: "The account's registered key is not ML-DSA-87.",
     PQCKeyNotProven: "The account's ML-DSA-87 key has no proof of possession.",
     PQCSignatureInvalid: "The vault rejected the ML-DSA-87 signature.",
-    ReserveExhausted: "The mock yield source's reserve is empty. Harvests and claims fail until it is refilled.",
+    ReserveExhausted: "The test yield source's reserve is empty. Harvests, claims and spends fail until it is refilled.",
     NotShareOwner: "The yield source refused the redemption.",
     ERC20InsufficientBalance: "Not enough fUSD.",
     ERC20InsufficientAllowance: "The vault is not approved to take this much fUSD. Approve first.",

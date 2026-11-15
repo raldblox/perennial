@@ -2,7 +2,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
 import { App } from "../App";
-import { ALICE, BOB, fakeClient, harvestedLog, NOW, openedLog, positionState, type FakeState } from "./fakeChain";
+import { ALICE, BOB, fakeClient, harvestedLog, NOW, openedLog, positionState, spentLog, type FakeState } from "./fakeChain";
 import { fakeSigner, renderUnlockable, renderWith, withWrites } from "./render";
 
 function go(hash: string) {
@@ -10,13 +10,14 @@ function go(hash: string) {
 }
 
 const DAY = 86_400n;
+const REF = `0x${"aa".repeat(32)}` as const;
 
 function state(overrides: Partial<FakeState> = {}): FakeState {
   return {
     positions: {
-      "1": { state: positionState({ heirs: undefined } as never), heirs: [{ account: BOB, bps: 10_000 }], pendingYield: 12_345n },
+      "1": { state: positionState({ principal: 500_000_000n, buffer: 40_000n, bufferCap: 60_000n }), heirs: [{ account: BOB, bps: 10_000 }], pendingYield: 1_234n },
     },
-    logs: [openedLog(1n, ALICE, ALICE, 110_400_000_000n), harvestedLog(1n, 21n)],
+    logs: [openedLog(1n, ALICE, ALICE, 500_000_000n), harvestedLog(1n, 21n), spentLog(1n, BOB, 2_000n, REF, 10_159_000n)],
     keys: { [ALICE]: true, [BOB]: true },
     balances: { [ALICE]: 500_000_000_000n },
     ...overrides,
@@ -37,31 +38,30 @@ async function unlock(user: ReturnType<typeof userEvent.setup>) {
 beforeEach(() => go("#/"));
 
 describe("overview", () => {
-  it("shows the headline, the calculator and live figures from the vault", async () => {
+  it("leads with the agent use case and its arithmetic", async () => {
     renderWith(<App />, fakeClient(state()));
-    expect(screen.getByRole("heading", { level: 1, name: "Spend the income. Never the capital." })).toBeInTheDocument();
-    expect(screen.getByTestId("calc-result")).toHaveTextContent("110,400");
-    const figures = await screen.findByText("Positions opened");
-    await waitFor(() => expect(figures.parentElement).toHaveTextContent("1"));
-    await waitFor(() => expect(screen.getByText("Principal held").parentElement).toHaveTextContent("110,400.00 fUSD"));
-    await waitFor(() => expect(screen.getByText("Yield harvested").parentElement).toHaveTextContent("0.000021 fUSD"));
+    expect(screen.getByRole("heading", { level: 1, name: "Deposit once. The yield pays your agent's calls." })).toBeInTheDocument();
+    expect(screen.getByText("1.24 calls an hour")).toBeInTheDocument();
+    // The calculator starts at one 0.002 call an hour: 402.96 fUSD.
+    expect(screen.getByTestId("calc-result")).toHaveTextContent("402.96");
+    await waitFor(() => expect(screen.getAllByText("Calls paid")[0]?.parentElement).toHaveTextContent("1"));
+    expect(screen.getAllByText(/accelerated testnet rate/i).length).toBeGreaterThan(0);
   });
 
-  it("recalculates as the payout changes, and inverts", async () => {
+  it("recalculates and inverts", async () => {
     const user = userEvent.setup();
     renderWith(<App />, fakeClient(state()));
-    const payout = screen.getByLabelText("Payout");
-    await user.clear(payout);
-    await user.type(payout, "250");
-    expect(screen.getByTestId("calc-result")).toHaveTextContent("69,000");
-    await user.click(screen.getByRole("button", { name: "From principal to payout" }));
-    expect(screen.getByLabelText("Principal")).toHaveValue("69000");
-    expect(screen.getByTestId("calc-result")).toHaveTextContent("250");
+    const calls = screen.getByLabelText("Calls an hour");
+    await user.clear(calls);
+    await user.type(calls, "10");
+    expect(screen.getByTestId("calc-result")).toHaveTextContent("4,029.6");
+    await user.click(screen.getByRole("button", { name: "From deposit to calls" }));
+    expect(screen.getByTestId("calc-result")).toHaveTextContent("1.24");
   });
 
-  it("says plainly when the vault cannot be read", async () => {
+  it("says plainly when the vaults cannot be read", async () => {
     renderWith(<App />, fakeClient(state({ failReads: true })));
-    expect(await screen.findByText(/The vault could not be read/)).toBeInTheDocument();
+    expect((await screen.findAllByText(/could not be read/)).length).toBeGreaterThan(0);
   });
 
   it("refuses to write on the wrong chain", async () => {
@@ -70,16 +70,19 @@ describe("overview", () => {
   });
 });
 
-describe("position", () => {
-  it("shows the numbers, the status and the heirs without an account", async () => {
+describe("position control panel", () => {
+  it("shows health, figures, the ledger with refs, and the compounding rule, without an account", async () => {
     go("#/position/1");
     renderWith(<App />, fakeClient(state()));
     expect(await screen.findByRole("heading", { name: "Position 1" })).toBeInTheDocument();
     expect(screen.getByText("Active")).toBeInTheDocument();
-    expect(screen.getByText("Principal").parentElement).toHaveTextContent("110,400.00 fUSD");
-    expect(screen.getByText("Pending yield").parentElement).toHaveTextContent("0.0123 fUSD");
-    expect(screen.getByText("100%")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Claim" })).toBeDisabled();
+    expect(screen.getByText("Principal").parentElement).toHaveTextContent("500.00 fUSD");
+    expect(screen.getByText("Buffer").parentElement).toHaveTextContent("Cap 0.060000 fUSD.");
+    expect(screen.getByText(/Yield above the buffer cap is added to the principal/)).toBeInTheDocument();
+    const ledger = await screen.findByRole("table");
+    expect(within(ledger).getByText("Spent")).toBeInTheDocument();
+    expect(within(ledger).getByText("0xaaaa…aaaa")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Claim to self" })).toBeDisabled();
     expect(screen.getByText(/Unlock an account to act/)).toBeInTheDocument();
   });
 
@@ -89,6 +92,14 @@ describe("position", () => {
     expect(await screen.findByText("There is no position 9 in this vault.")).toBeInTheDocument();
   });
 
+  it("shows the read-only vault without controls", async () => {
+    go("#/position/v1/1");
+    renderWith(<App />, fakeClient(state()));
+    expect(await screen.findByText("Version 1 vault (read-only) · 5% a year, simulated")).toBeInTheDocument();
+    expect(screen.getAllByText("This vault is read-only here.").length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: "Send" })).toBeNull();
+  });
+
   it("opens succession once the deadline has passed", async () => {
     go("#/position/1");
     const late = positionState({ lastCheckIn: NOW - 121n * DAY, lastPayout: NOW - 121n * DAY });
@@ -96,19 +107,11 @@ describe("position", () => {
     expect(await screen.findByText("Succession open")).toBeInTheDocument();
   });
 
-  it("explains that a silent position without heirs cannot succeed", async () => {
-    go("#/position/1");
-    const late = positionState({ lastCheckIn: NOW - 121n * DAY });
-    renderWith(<App />, fakeClient(state({ positions: { "1": { state: late, heirs: [], pendingYield: 0n } } })));
-    expect(await screen.findByText("Silent, no heirs")).toBeInTheDocument();
-  });
-
-  it("signs a claim only after showing what will be signed", async () => {
+  it("signs a spend only after showing recipient, amount and the vault's bytes", async () => {
     go("#/position/1");
     const user = userEvent.setup();
     const signer = fakeSigner();
-    const due = positionState({ lastPayout: NOW - 2_628_000n - 10n });
-    const client = withWrites(fakeClient(state({ positions: { "1": { state: due, heirs: [], pendingYield: 0n } } })));
+    const client = withWrites(fakeClient(state()));
     Object.assign(client, {
       readContract: ((original: (req: never) => Promise<unknown>) => (req: { functionName: string }) =>
         req.functionName === "actionMessage" ? Promise.resolve("0xfeedbeef") : original(req as never))(client.readContract.bind(client) as never),
@@ -116,16 +119,21 @@ describe("position", () => {
     renderUnlockable(<App />, client, signer);
     await screen.findByRole("heading", { name: "Position 1" });
     await unlock(user);
-    const claim = screen.getByRole("button", { name: "Claim" });
-    await waitFor(() => expect(claim).toBeEnabled());
-    await user.click(claim);
+    await user.type(screen.getByLabelText("Pay to"), BOB);
+    await user.type(screen.getByLabelText("Reference"), "request 42");
+    const send = screen.getByRole("button", { name: "Send" });
+    await waitFor(() => expect(send).toBeEnabled());
+    await user.click(send);
     const dialog = await screen.findByRole("dialog", { name: "Sign this action" });
+    expect(within(dialog).getByText("Spend from the buffer")).toBeInTheDocument();
+    expect(within(dialog).getByText(new RegExp(`0.002000 fUSD to ${BOB}`))).toBeInTheDocument();
     expect(within(dialog).getByLabelText("Message")).toHaveValue("0xfeedbeef");
     expect(signer.module.signAction).not.toHaveBeenCalled();
     await user.click(within(dialog).getByRole("button", { name: "Sign and send" }));
-    await waitFor(() => expect(signer.sent.map((s) => s.functionName)).toEqual(["claim"]));
-    expect(signer.module.signAction).toHaveBeenCalledWith(ALICE, "0xfeedbeef");
-    expect(await screen.findByText(/Confirmed\. Claimed\./)).toBeInTheDocument();
+    await waitFor(() => expect(signer.sent.map((s) => s.functionName)).toEqual(["spend"]));
+    const args = signer.sent[0]?.args ?? [];
+    expect(args.slice(0, 3)).toEqual([1n, BOB, 2_000n]);
+    expect(await screen.findByText(/Confirmed\. Paid\./)).toBeInTheDocument();
   });
 
   it("asks for confirmation before triggering succession", async () => {
@@ -133,8 +141,7 @@ describe("position", () => {
     const user = userEvent.setup();
     const signer = fakeSigner();
     const late = positionState({ lastCheckIn: NOW - 121n * DAY });
-    const client = withWrites(fakeClient(state({ positions: { "1": { state: late, heirs: [{ account: BOB, bps: 10_000 }], pendingYield: 0n } } })));
-    renderUnlockable(<App />, client, signer);
+    renderUnlockable(<App />, withWrites(fakeClient(state({ positions: { "1": { state: late, heirs: [{ account: BOB, bps: 10_000 }], pendingYield: 0n } } }))), signer);
     await screen.findByRole("heading", { name: "Position 1" });
     await unlock(user);
     const trigger = screen.getByRole("button", { name: "Trigger succession" });
@@ -146,57 +153,59 @@ describe("position", () => {
   });
 });
 
-describe("open a position", () => {
-  it("validates, reviews, approves and opens", async () => {
+describe("fund an agent", () => {
+  it("suggests the deposit, validates, and approves exactly that amount", async () => {
     go("#/open");
     const user = userEvent.setup();
     const signer = fakeSigner();
-    const client = withWrites(fakeClient(state()));
-    renderUnlockable(<App />, client, signer);
+    renderUnlockable(<App />, withWrites(fakeClient(state())), signer);
     await unlock(user);
 
     await user.click(screen.getByRole("button", { name: "Continue" }));
-    expect(screen.getByText("Enter a principal above zero, with at most 6 decimals.")).toBeInTheDocument();
+    expect(screen.getByText("Enter a deposit above zero, with at most 6 decimals.")).toBeInTheDocument();
 
-    await user.type(screen.getByLabelText("Principal"), "110400");
-    await user.type(screen.getByLabelText("Payout per interval"), "400");
-    expect(await screen.findByText(/this payout needs 110,400.00 fUSD/)).toBeInTheDocument();
+    expect(await screen.findByText(/that needs 402.96 fUSD/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Use this deposit" }));
+    expect(screen.getByLabelText("Deposit")).toHaveValue("402.96");
+    expect(screen.getByText(/pays about 1 call an hour/)).toBeInTheDocument();
+    // The cap starts at a day of calls: 24 × 0.002.
+    expect(screen.getByLabelText("Buffer cap")).toHaveValue("0.048");
     await user.click(screen.getByRole("button", { name: "Continue" }));
 
     await user.click(screen.getByRole("button", { name: "Add an heir" }));
     await user.type(screen.getByLabelText("Heir address 1"), BOB);
-    await user.clear(screen.getByLabelText("Share"));
-    await user.type(screen.getByLabelText("Share"), "60");
     await user.click(screen.getByRole("button", { name: "Review" }));
-    expect(screen.getByText("The shares must total exactly 100%.")).toBeInTheDocument();
-    await user.clear(screen.getByLabelText("Share"));
-    await user.type(screen.getByLabelText("Share"), "100");
-    await user.click(screen.getByRole("button", { name: "Review" }));
-
     expect(await screen.findByText(/Check every line/)).toBeInTheDocument();
-    const approve = await screen.findByRole("button", { name: /Approve fUSD/ });
+
+    const approve = await screen.findByRole("button", { name: /Approve exactly 402.96 fUSD/ });
     await waitFor(() => expect(approve).toBeEnabled());
     await user.click(approve);
     await waitFor(() => expect(signer.sent.map((s) => s.functionName)).toEqual(["approve"]));
+    expect(signer.sent[0]?.args[1]).toBe(402_960_000n);
   });
 
-  it("opens once the vault may take the principal, and links to the new position", async () => {
+  it("opens with the buffer cap and links to the control panel", async () => {
     go("#/open");
     const user = userEvent.setup();
     const signer = fakeSigner();
     renderUnlockable(<App />, withWrites(fakeClient(state({ allowance: 10n ** 18n }))), signer);
     await unlock(user);
-    await user.type(screen.getByLabelText("Principal"), "1000");
-    await user.click(screen.getByRole("radio", { name: /^Yes\./ }));
+    await user.type(screen.getByLabelText("Deposit"), "20");
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await user.click(screen.getByRole("button", { name: "Review" }));
     const open = await screen.findByRole("button", { name: "Open position" });
     await waitFor(() => expect(open).toBeEnabled());
     await user.click(open);
     await waitFor(() => expect(signer.sent.map((s) => s.functionName)).toEqual(["open"]));
-    const sent = signer.sent[0]?.args[0] as { amount: bigint; beneficiary: string; ownerCanClose: boolean; heirs: unknown[] };
-    expect(sent).toMatchObject({ amount: 1_000_000_000n, beneficiary: ALICE, ownerCanClose: true, heirs: [] });
-    expect(await screen.findByRole("link", { name: "View the position" })).toHaveAttribute("href", "#/position/3");
+    const sent = signer.sent[0]?.args[0] as { amount: bigint; beneficiary: string; bufferCap: bigint; heirs: unknown[] };
+    expect(sent).toMatchObject({ amount: 20_000_000n, beneficiary: ALICE, bufferCap: 48_000n, heirs: [] });
+    expect(await screen.findByRole("link", { name: "Open its control panel" })).toHaveAttribute("href", "#/position/3");
+  });
+
+  it("labels the accelerated vault where it is chosen", async () => {
+    go("#/open?vault=demo");
+    renderWith(<App />, fakeClient(state()));
+    expect((await screen.findAllByText(/never a return/)).length).toBeGreaterThan(0);
   });
 
   it("explains the window when this site cannot reach the native API", async () => {
@@ -213,8 +222,22 @@ describe("open a position", () => {
     const signer = fakeSigner({ windowLive: false });
     renderUnlockable(<App />, withWrites(fakeClient(state())), signer);
     await unlock(user);
-    await user.click(await screen.findByRole("button", { name: "Open a window for Perennial" }));
+    await user.click(await screen.findByRole("button", { name: "Open a window for this vault" }));
     await waitFor(() => expect(signer.module.openWindow).toHaveBeenCalled());
+  });
+
+  it("quotes and swaps QOR for fUSD", async () => {
+    go("#/open");
+    const user = userEvent.setup();
+    const signer = fakeSigner();
+    renderUnlockable(<App />, withWrites(fakeClient(state())), signer);
+    await unlock(user);
+    await user.click(screen.getByText("Get fUSD with QOR"));
+    await user.click(screen.getByRole("button", { name: "Get a quote" }));
+    expect(await screen.findByText(/About 0.084983 fUSD; at least 0.082433 fUSD/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Swap" }));
+    await waitFor(() => expect(signer.module.swapQorForFusd).toHaveBeenCalled());
+    expect(await screen.findByText("Swapped.")).toBeInTheDocument();
   });
 
   it("blocks an account without a registered key", async () => {

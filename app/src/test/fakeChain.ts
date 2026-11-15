@@ -4,13 +4,14 @@
  */
 import { encodeAbiParameters, encodeEventTopics, getAddress, type Address, type Log, type PublicClient } from "viem";
 import { vaultAbi } from "../chain/abi";
-import { config } from "../config";
+import { config, vaultById } from "../config";
 import type { PositionState } from "../lib/schedule";
 
 export const SOURCE: Address = "0x00000000000000000000000000000000000050c3";
 export const ALICE: Address = getAddress("0xa11ce00000000000000000000000000000000001");
 export const BOB: Address = getAddress("0xb0b0000000000000000000000000000000000002");
 export const NOW = 1_800_000_000n;
+export const AGENT_VAULT = vaultById("agent");
 const KEY = `0x${"ab".repeat(2592)}` as const;
 
 export interface FakeState {
@@ -42,26 +43,40 @@ export function positionState(overrides: Partial<PositionState> = {}): PositionS
     shares: 110_400_000_000n,
     buffer: 1_250_000_000n,
     nonce: 3n,
+    bufferCap: 2n ** 256n - 1n,
     ...overrides,
   };
 }
 
-export function openedLog(id: bigint, owner: Address, beneficiary: Address, amount: bigint, block = 10_124_400n): Log {
+export function openedLog(id: bigint, owner: Address, beneficiary: Address, amount: bigint, block = 10_158_000n): Log {
   return {
-    address: config.vault,
+    address: AGENT_VAULT.address,
+    logIndex: 0,
     blockNumber: block,
     transactionHash: `0x${id.toString(16).padStart(64, "0")}`,
     topics: encodeEventTopics({ abi: vaultAbi, eventName: "Opened", args: { positionId: id, owner, beneficiary } }) as Log["topics"],
     data: encodeAbiParameters(
-      [{ type: "uint256" }, { type: "uint256" }, { type: "uint64" }, { type: "uint64" }, { type: "uint64" }, { type: "bool" }],
-      [amount, 0n, 2_628_000n, 86_400n, 86_400n, false],
+      [{ type: "uint256" }, { type: "uint256" }, { type: "uint64" }, { type: "uint64" }, { type: "uint64" }, { type: "bool" }, { type: "uint256" }],
+      [amount, 0n, 2_628_000n, 86_400n, 86_400n, false, 2n ** 256n - 1n],
     ),
   } as unknown as Log;
 }
 
-export function harvestedLog(id: bigint, amount: bigint, block = 10_124_500n): Log {
+export function spentLog(id: bigint, to: Address, amount: bigint, ref: `0x${string}`, block: bigint): Log {
   return {
-    address: config.vault,
+    address: AGENT_VAULT.address,
+    logIndex: 1,
+    blockNumber: block,
+    transactionHash: `0x${"ef".repeat(32)}`,
+    topics: encodeEventTopics({ abi: vaultAbi, eventName: "Spent", args: { positionId: id, to, ref } }) as Log["topics"],
+    data: encodeAbiParameters([{ type: "uint256" }], [amount]),
+  } as unknown as Log;
+}
+
+export function harvestedLog(id: bigint, amount: bigint, block = 10_158_500n): Log {
+  return {
+    address: AGENT_VAULT.address,
+    logIndex: 0,
     blockNumber: block,
     transactionHash: `0x${"cd".repeat(32)}`,
     topics: encodeEventTopics({ abi: vaultAbi, eventName: "Harvested", args: { positionId: id, caller: BOB } }) as Log["topics"],
@@ -114,13 +129,25 @@ export function fakeClient(state: FakeState): PublicClient {
   const client = {
     readContract: (req: { functionName: string; args?: readonly unknown[] }) => Promise.resolve().then(() => readContract(req)),
     getChainId: () => Promise.resolve(state.chainId ?? config.chainId),
-    getBlock: () => Promise.resolve({ timestamp: state.now ?? NOW }),
-    getBlockNumber: () => Promise.resolve(config.deployBlock + 1_000n),
+    getBlock: (args?: { blockNumber?: bigint }) => {
+      const latest = AGENT_VAULT.deployBlock + 10_000n;
+      const number = args?.blockNumber ?? latest;
+      // 1.5 seconds a block.
+      return Promise.resolve({ number, timestamp: (state.now ?? NOW) - ((latest - number) * 3n) / 2n });
+    },
+    getBlockNumber: () => Promise.resolve(AGENT_VAULT.deployBlock + 10_000n),
     getBalance: () => Promise.resolve(10n ** 18n),
-    getLogs: () => Promise.resolve().then(() => {
-      fail();
-      return state.logs ?? [];
-    }),
+    getLogs: (args: { address?: Address; fromBlock: bigint; toBlock: bigint }) =>
+      Promise.resolve().then(() => {
+        fail();
+        // Like the RPC: only this range, and only the vault asked for.
+        return (state.logs ?? []).filter(
+          (log) =>
+            (log.blockNumber ?? 0n) >= args.fromBlock &&
+            (log.blockNumber ?? 0n) <= args.toBlock &&
+            (args.address === undefined || getAddress(log.address) === getAddress(args.address)),
+        );
+      }),
   };
   return client as unknown as PublicClient;
 }

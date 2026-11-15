@@ -4,7 +4,8 @@ import { getAddress, isAddress, type Address } from "viem";
 import { positionsInvolving, type Role } from "../chain/events";
 import { readPosition } from "../chain/vault";
 import { Amount, Notice, Spinner, Status } from "../components/ui";
-import { common, phases, positions as copy } from "../copy";
+import { config, vaultById, type VaultConfig, type VaultId } from "../config";
+import { common, phases, positions as copy, vaultNames } from "../copy";
 import { timeline } from "../lib/schedule";
 import { href, navigate } from "../router";
 import { useChainNow, useClient, useVaultEvents, useVaultInfo } from "../state/queries";
@@ -12,13 +13,13 @@ import { useSession } from "../state/session";
 
 const WalletLookup = lazy(() => import("../components/WalletLookup"));
 
-function PositionTable({ roles }: { roles: Map<bigint, Set<Role>> }) {
+function PositionTable({ vault, roles }: { vault: VaultConfig; roles: Map<bigint, Set<Role>> }) {
   const client = useClient();
-  const info = useVaultInfo();
+  const info = useVaultInfo(vault);
   const now = useChainNow();
   const ids = [...roles.keys()].sort((a, b) => (a < b ? 1 : -1));
   const reads = useQueries({
-    queries: ids.map((id) => ({ queryKey: ["position", id.toString()], queryFn: () => readPosition(client, id) })),
+    queries: ids.map((id) => ({ queryKey: ["position", vault.id, id.toString()], queryFn: () => readPosition(client, vault, id) })),
   });
   const decimals = info.data?.decimals ?? 6;
   const t = now.data ?? BigInt(Math.floor(Date.now() / 1000));
@@ -44,7 +45,7 @@ function PositionTable({ roles }: { roles: Map<bigint, Set<Role>> }) {
             return (
               <tr key={id.toString()}>
                 <th scope="row" style={{ textTransform: "none", letterSpacing: 0, fontSize: "var(--size-small)" }}>
-                  <a href={href({ name: "position", id })}>#{id.toString()}</a>
+                  <a href={href({ name: "position", vault: vault.id, id })}>#{id.toString()}</a>
                 </th>
                 <td>{[...(roles.get(id) ?? [])].map((r) => copy.roleNames[r]).join(", ")}</td>
                 <td className="num">{p ? <Amount value={p.state.principal} decimals={decimals} unit={info.data?.symbol} /> : <span className="skeleton">0000</span>}</td>
@@ -58,8 +59,8 @@ function PositionTable({ roles }: { roles: Map<bigint, Set<Role>> }) {
   );
 }
 
-function ForAddress({ address }: { address: Address }) {
-  const events = useVaultEvents();
+function ForAddress({ vault, address }: { vault: VaultConfig; address: Address }) {
+  const events = useVaultEvents(vault);
   if (events.isPending) return <Spinner label={copy.scanning} />;
   if (events.isError) {
     return (
@@ -72,13 +73,14 @@ function ForAddress({ address }: { address: Address }) {
   }
   const roles = positionsInvolving(events.data, address);
   if (roles.size === 0) return <p className="muted">{copy.empty}</p>;
-  return <PositionTable roles={roles} />;
+  return <PositionTable vault={vault} roles={roles} />;
 }
 
-export function Positions({ address }: { address?: string }) {
+export function Positions({ vaultId, address }: { vaultId: VaultId; address?: string }) {
+  const vault = vaultById(vaultId);
   const { account } = useSession();
   const [walletAddress, setWalletAddress] = useState<Address | undefined>(undefined);
-  const info = useVaultInfo();
+  const info = useVaultInfo(vault);
   const [id, setId] = useState("");
   const [query, setQuery] = useState(address ?? "");
   const [idError, setIdError] = useState(false);
@@ -91,7 +93,7 @@ export function Positions({ address }: { address?: string }) {
       setIdError(true);
       return;
     }
-    navigate({ name: "position", id: BigInt(id.trim()) });
+    navigate({ name: "position", vault: vault.id, id: BigInt(id.trim()) });
   };
 
   const search = (event: FormEvent) => {
@@ -101,7 +103,7 @@ export function Positions({ address }: { address?: string }) {
       return;
     }
     setAddressError(false);
-    navigate({ name: "positions", address: getAddress(query.trim()) });
+    navigate({ name: "positions", vault: vault.id, address: getAddress(query.trim()) });
   };
 
   const count = info.data?.positionCount ?? 0n;
@@ -116,6 +118,21 @@ export function Positions({ address }: { address?: string }) {
             {copy.title}
           </h1>
         </div>
+        <nav className="segmented" aria-label={copy.vault} style={{ marginBottom: "var(--space-5)" }}>
+          {config.vaults.map((v) => (
+            <a
+              key={v.id}
+              className="segment"
+              href={href({ name: "positions", vault: v.id })}
+              aria-current={v.id === vault.id ? "page" : undefined}
+            >
+              {vaultNames[v.id].name}
+            </a>
+          ))}
+        </nav>
+        <p className="small muted" style={{ marginBottom: "var(--space-5)" }}>
+          {vaultNames[vault.id].note}
+        </p>
 
         <div className="split even">
           <form className="field" onSubmit={goToId} noValidate>
@@ -176,7 +193,7 @@ export function Positions({ address }: { address?: string }) {
           <h2 id="searched-title" className="label">
             {copy.byAddress}: <span className="mono">{searched}</span>
           </h2>
-          <ForAddress address={searched} />
+          <ForAddress vault={vault} address={searched} />
         </section>
       ) : null}
 
@@ -185,8 +202,8 @@ export function Positions({ address }: { address?: string }) {
           <h2 id="yours-title" className="label">
             {copy.yours}
           </h2>
-          <ForAddress address={account.evm} />
-          {account.nativeEvm !== account.evm ? <ForAddress address={account.nativeEvm} /> : null}
+          <ForAddress vault={vault} address={account.evm} />
+          {account.nativeEvm !== account.evm ? <ForAddress vault={vault} address={account.nativeEvm} /> : null}
         </section>
       ) : null}
 
@@ -197,14 +214,14 @@ export function Positions({ address }: { address?: string }) {
         <Suspense fallback={<Spinner />}>
           <WalletLookup onAccount={setWalletAddress} />
         </Suspense>
-        {walletAddress ? <ForAddress address={walletAddress} /> : null}
+        {walletAddress ? <ForAddress vault={vault} address={walletAddress} /> : null}
       </section>
 
       <section className="section stack" aria-labelledby="all-title">
         <h2 id="all-title" className="label">
           {copy.all}
         </h2>
-        {info.isPending ? <Spinner /> : count === 0n ? <p className="muted">{copy.empty}</p> : <PositionTable roles={all} />}
+        {info.isPending ? <Spinner /> : count === 0n ? <p className="muted">{copy.none}</p> : <PositionTable vault={vault} roles={all} />}
       </section>
     </div>
   );

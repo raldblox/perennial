@@ -7,9 +7,8 @@ import { useEffect, useId, useRef } from "react";
 import type { PreparedAction } from "../chain/write";
 import { common, signing as copy } from "../copy";
 import { formatUtc } from "../lib/schedule";
-import { AddressText, Notice } from "./ui";
+import { AddressText, formatAmount, Notice } from "./ui";
 
-const ACTION_LABEL = { CheckIn: "Check in", Claim: "Claim", SetHeirs: "Change heirs", Close: "Close position" } as const;
 
 export function SignDialog({
   prepared,
@@ -48,7 +47,7 @@ export function SignDialog({
           <dl className="ledger small">
             <div>
               <dt>{copy.action}</dt>
-              <dd>{ACTION_LABEL[prepared.request.action]}</dd>
+              <dd>{copy.actionNames[prepared.request.action]}</dd>
             </div>
             <div>
               <dt>{copy.position}</dt>
@@ -73,7 +72,11 @@ export function SignDialog({
             <div>
               <dt>{copy.params}</dt>
               <dd className="mono wrap-anywhere">
-                {prepared.request.action === "SetHeirs" ? `${copy.heirsHash(prepared.request.heirs?.length ?? 0)}: ${prepared.paramsHash}` : copy.paramsNone}
+                {prepared.request.action === "SetHeirs"
+                  ? `${copy.heirsHash(prepared.request.heirs?.length ?? 0)}: ${prepared.paramsHash}`
+                  : prepared.request.spend
+                    ? copy.spendSummary(formatAmount(prepared.request.spend.amount, 6, 6), prepared.request.spend.to, prepared.request.spend.ref)
+                    : copy.paramsNone}
               </dd>
             </div>
           </dl>
