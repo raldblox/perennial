@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "brand": "tsx scripts/brand.ts"
   },
   "dependencies": {
     "@cosmjs/stargate": "^0.39.0",
@@ -32,6 +33,8 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
+    "@fontsource/source-serif-4": "^5.3.1",
+    "@resvg/resvg-js": "^2.6.2",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.3",
@@ -45,6 +48,8 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "globals": "^15.15.0",
     "jsdom": "^25.0.1",
+    "satori": "^0.12.2",
+    "tsx": "^4.23.15",
     "typescript": "^5.6.3",
     "typescript-eslint": "^8.72.2",
     "vite": "^5.4.0",

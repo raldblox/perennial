@@ -24,4 +24,6 @@ export default tseslint.config(
     },
   },
   { files: ["eslint.config.js"], ...tseslint.configs.disableTypeChecked },
+  // Command-line scripts report on the console.
+  { files: ["scripts/**"], rules: { "no-console": "off" } },
 );
