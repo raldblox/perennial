@@ -10,6 +10,7 @@
  *   pnpm window status     show the account, its PQC key and its window
  *   pnpm window register   register the account's ML-DSA-87 key (once)
  *   pnpm window open       open a window sized for a few deploys
+ *   pnpm window close      close the window at once
  *   pnpm window recovery-code   print a new PQC recovery code (QRC1)
  *
  * The account comes from QORE_MNEMONIC (BIP-44 m/44'/60'/0'/0/0), whose
@@ -28,6 +29,7 @@ import {
   isRegisteredPqcKey,
   isValidRecoveryCode,
   openEvmWindowMsg,
+  closeEvmWindowMsg,
   signProofOfPossession,
   unifiedAccountFromSeed,
   type UnifiedAccount,
@@ -157,10 +159,21 @@ async function open(): Promise<void> {
   // (tools commonly set the cap near twice the 100 gwei base fee).
   const perTx = evmWindowCost({ gas: 3_000_000n, maxFeePerGas: 250_000_000_000n });
   const maxValue = BigInt(process.env.QORE_WINDOW_MAX_UQOR ?? (perTx * maxTxs).toString());
-  const msg = openEvmWindowMsg({ sender: acc.cosmos, blocks, maxTxs, maxValue });
+  // Optional scope: the window then admits calls to these contracts only.
+  const allowedTargets = (process.env.QORE_WINDOW_TARGETS ?? "")
+    .split(",")
+    .map((t) => t.trim())
+    .filter(Boolean);
+  const msg = openEvmWindowMsg({ sender: acc.cosmos, blocks, maxTxs, maxValue, allowedTargets });
   console.log(`opened: ${await broadcast(acc, "hybrid", [msg])}`);
   console.log(`window: ${blocks} blocks, ${maxTxs} txs, ${maxValue} uqor (value plus fees)`);
+  if (allowedTargets.length) console.log(`scope:  ${allowedTargets.join(", ")}`);
   console.log("Opening advanced the account's nonce; deploy now.");
+}
+
+async function close(): Promise<void> {
+  const acc = await account();
+  console.log(`closed: ${await broadcast(acc, "hybrid", [closeEvmWindowMsg(acc.cosmos)])}`);
 }
 
 async function recoveryCode(): Promise<void> {
@@ -169,11 +182,11 @@ async function recoveryCode(): Promise<void> {
   console.log("Use the same code every time: a new code gives the account a different ML-DSA-87 key.");
 }
 
-const commands: Record<string, () => Promise<void>> = { status, register, open, "recovery-code": recoveryCode };
+const commands: Record<string, () => Promise<void>> = { status, register, open, close, "recovery-code": recoveryCode };
 const cmd = process.argv[2] ?? "status";
 const run = commands[cmd];
 if (!run) {
-  console.error(`Unknown command "${cmd}". Use: status | register | open | recovery-code`);
+  console.error(`Unknown command "${cmd}". Use: status | register | open | close | recovery-code`);
   process.exit(1);
 }
 run().catch((err: unknown) => {
