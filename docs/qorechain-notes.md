@@ -169,3 +169,29 @@ Read and measured on 15 November 2026.
 
 How the web app deals with this is
 [decision 003](decisions/003-browser-signing.md).
+
+## Native AMM and yield
+
+Read and measured on 16 November 2026.
+
+- `GET /qorechain/amm/v1/pools` lists the native AMM's constant-product
+  pools. Pool 2 is fUSD (`erc20:0x9714…63CA`) against `uqor`; on 15 November it
+  held 621.70 fUSD and 7,292.66 QOR, about 0.085 fUSD per QOR. The swap fee is
+  0.30% of the input (<https://docs.qorechain.io/architecture/amm>).
+- `@qorechain/sdk` composes `/qorechain.amm.v1.MsgSwapExactIn`
+  (`sender`, `poolId`, `tokenIn`, `denomOut`, `minOut`) as `amm.swapExactIn`.
+  Its registry has no `/cosmos.evm.erc20.v1.MsgConvertCoin`; a three-field
+  codec registered through `qorechainRegistry(extraTypes)` works.
+- The swap's output arrives as the bank coin `erc20:0x9714…`. Converting it
+  in the same transaction makes it an ERC-20 balance a contract can take.
+  `pnpm swap 1` did both: 1 QOR in, 0.081166 fUSD out
+  (`36FD107479F906FDBFA4F5D665E0B3EFFA69A53E873AC3DE5E6BD1BDEEFC84B8`).
+- Active static precompiles: `0x0901`, `0x0C01`, `0x0A01`, `0x0A02`. The
+  staking and distribution precompiles are not active, and
+  `/qorechain/stakingtier/v1/apr` reported a gross base APR of 0. No yield on
+  the chain is reachable from Solidity today
+  ([decision 006](decisions/006-yield-sources.md)).
+- A window scoped with `allowedTargets` refuses contract creation, so a
+  deployment needs an unscoped window; keep it small and close it after.
+- The EVM lane bills at least half the gas limit: a signed vault action
+  sent with a 400,000 limit was billed at least 200,000.
