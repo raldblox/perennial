@@ -17,3 +17,11 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Unit, fuzz and invariant tests.
 - Testnet deploy script and the EVM window helper.
 - Research notes and design decisions 001 and 002.
+- End-to-end script against the testnet deployment, and contract-scoped
+  EVM windows in the window helper.
+
+### Changed
+
+- The vault calls the chain's fixed PQC precompile addresses instead of
+  taking them as constructor arguments, and refuses to deploy where they are
+  inactive.
