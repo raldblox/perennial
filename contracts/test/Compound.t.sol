@@ -76,6 +76,29 @@ contract CompoundTest is VaultFixture {
         assertEq(pos.principal, PRINCIPAL + pending);
     }
 
+    /// A spend is taken before anything is compounded.
+    function test_spend_isPaidBeforeCompounding() public {
+        uint256 id = _openWithCap(0, 0);
+        skip(1 days);
+        uint256 pending = vault.pendingYield(id);
+        address merchant = makeAddr("merchant");
+        bytes32 ref = keccak256("call");
+        uint256 deadline = _deadline();
+        bytes memory signature = _sign(
+            BENEFICIARY_SECRET,
+            id,
+            PerennialVault.Action.Spend,
+            deadline,
+            keccak256(abi.encode(merchant, uint256(1_000), ref))
+        );
+        vault.spend(id, merchant, 1_000, ref, deadline, signature);
+
+        PerennialVault.Position memory pos = vault.position(id);
+        assertEq(token.balanceOf(merchant), 1_000);
+        assertEq(pos.buffer, 0);
+        assertEq(pos.principal, PRINCIPAL + pending - 1_000);
+    }
+
     function test_distribute_paysHeirsThenCompounds() public {
         uint256 id = _openWithCap(10 * USD, PAYOUT);
         skip(CHECK_IN_PERIOD + GRACE_PERIOD + 1);

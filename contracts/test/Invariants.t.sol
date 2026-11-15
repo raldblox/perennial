@@ -38,6 +38,9 @@ contract Handler is Test {
     bool public principalShrank;
     /// How many times each position's principal grew (a deposit or a compounding).
     mapping(uint256 => uint256) public growths;
+    /// Paid out by `spend` to the merchant, and everything paid out of buffers.
+    uint256 public spentToMerchant;
+    address public merchant = makeAddr("merchant");
 
     constructor(
         PerennialVault vault_,
@@ -163,6 +166,22 @@ contract Handler is Test {
         vault.checkIn(id, deadline, signature);
     }
 
+    function spend(uint256 seed, uint256 amount, bytes32 ref) external tracksPrincipal(seed) {
+        uint256 id = _pick(seed);
+        if (id == 0) return;
+        amount = bound(amount, 1, 1_000 * USD);
+        uint256 deadline = block.timestamp + 1;
+        bytes memory signature = _signWith(
+            beneficiarySecret,
+            id,
+            PerennialVault.Action.Spend,
+            deadline,
+            keccak256(abi.encode(merchant, amount, ref))
+        );
+        vault.spend(id, merchant, amount, ref, deadline, signature);
+        spentToMerchant += amount;
+    }
+
     function triggerSuccession(uint256 seed) external tracksPrincipal(seed) {
         uint256 id = _pick(seed);
         if (id == 0) return;
@@ -256,9 +275,11 @@ contract InvariantsTest is VaultFixture {
         }
     }
 
-    /// Nobody but the owner, the beneficiary and the heirs ever receives tokens.
+    /// Nobody but the owner, the beneficiary, the heirs and whoever the beneficiary signed a
+    /// spend to ever receives tokens, and the spend recipient gets exactly what was signed.
     function invariant_noValueLeaksToThirdParties() public view {
         assertEq(token.balanceOf(address(handler)), 0);
         assertEq(token.balanceOf(stranger), 0);
+        assertEq(token.balanceOf(handler.merchant()), handler.spentToMerchant());
     }
 }

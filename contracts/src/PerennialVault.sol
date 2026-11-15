@@ -8,9 +8,10 @@ import {IYieldSource} from "./interfaces/IYieldSource.sol";
 import {PQCAuth} from "./libraries/PQCAuth.sol";
 
 /// @title PerennialVault
-/// @notice An endowment that pays out only what its principal earns.
+/// @notice An endowment that pays out only what its principal earns: on a schedule, or
+///         call by call when its beneficiary spends from the buffer.
 /// @dev A position's principal is deposited into the yield source and tracked as shares.
-///      Yield is harvested into the position's buffer, and payouts are made from
+///      Yield is harvested into the position's buffer, and payouts and spends are made from
 ///      the buffer only. Whatever the buffer holds above its cap is added to the principal.
 ///      The vault has one asset and one yield source, both fixed at deployment, and no
 ///      privileged role: nothing can be paused, upgraded or swept.
@@ -29,7 +30,8 @@ contract PerennialVault is ReentrancyGuard {
         CheckIn,
         Claim,
         SetHeirs,
-        Close
+        Close,
+        Spend
     }
 
     struct Heir {
@@ -65,7 +67,7 @@ contract PerennialVault is ReentrancyGuard {
         uint256 buffer;
         /// @dev Incremented by every signed action, so a signature works once.
         uint256 nonce;
-        /// @dev Most the buffer keeps after a harvest, claim or distribution; the rest
+        /// @dev Most the buffer keeps after a harvest, claim, distribution or spend; the rest
         ///      is added to the principal. Fixed at opening. Zero compounds everything not
         ///      paid out; type(uint256).max never compounds.
         uint256 bufferCap;
@@ -125,6 +127,11 @@ contract PerennialVault is ReentrancyGuard {
     event Claimed(
         uint256 indexed positionId, address indexed beneficiary, uint256 amount, uint256 periods
     );
+    /// @notice The beneficiary paid `amount` from the buffer to `to`. `ref` ties the payment to
+    ///         whatever it paid for, such as the hash of a request.
+    event Spent(
+        uint256 indexed positionId, address indexed to, uint256 amount, bytes32 indexed ref
+    );
     /// @notice Buffer above the cap was added to the principal.
     event Compounded(uint256 indexed positionId, uint256 amount);
 
@@ -146,6 +153,7 @@ contract PerennialVault is ReentrancyGuard {
     error SuccessionNotDue(uint256 positionId, uint256 notBefore);
     error NoHeirs(uint256 positionId);
     error CloseNotAllowed(uint256 positionId);
+    error InsufficientBuffer(uint256 positionId, uint256 available);
 
     constructor(IERC20 asset, IYieldSource source) {
         if (address(asset) == address(0) || address(source) == address(0)) revert ZeroAddress();
@@ -257,6 +265,38 @@ contract PerennialVault is ReentrancyGuard {
 
         if (paid != 0) ASSET.safeTransfer(pos.beneficiary, paid);
         emit Claimed(positionId, pos.beneficiary, paid, periods);
+    }
+
+    /// @notice Pay `amount` from the buffer to `to`, for the purpose `ref` names. This is how
+    ///         a beneficiary such as an agent pays for what it uses, call by call.
+    /// @dev Authorised by the beneficiary's ML-DSA-87 signature over `(to, amount, ref)`, so
+    ///      anyone may relay it and nobody can change where the money goes. Pending yield is
+    ///      harvested first, the buffer must cover `amount`, and the principal is never
+    ///      touched. Counts as a check-in. Not possible after succession: the heirs are then
+    ///      paid on the schedule through `distribute`.
+    function spend(
+        uint256 positionId,
+        address to,
+        uint256 amount,
+        bytes32 ref,
+        uint256 deadline,
+        bytes calldata signature
+    ) external nonReentrant {
+        Position storage pos = _live(positionId);
+        if (pos.succeeded) revert PositionSucceeded(positionId);
+        if (to == address(0)) revert ZeroAddress();
+        if (amount == 0) revert ZeroAmount();
+        bytes32 paramsHash = keccak256(abi.encode(to, amount, ref));
+        _authorize(positionId, pos, pos.beneficiary, Action.Spend, deadline, paramsHash, signature);
+        _recordProofOfLife(positionId, pos);
+
+        _harvest(positionId, pos);
+        if (amount > pos.buffer) revert InsufficientBuffer(positionId, pos.buffer);
+        pos.buffer -= amount;
+        _compound(positionId, pos);
+
+        ASSET.safeTransfer(to, amount);
+        emit Spent(positionId, to, amount, ref);
     }
 
     // ------------------------------------------------------------------
@@ -514,8 +554,8 @@ contract PerennialVault is ReentrancyGuard {
     }
 
     /// @dev Adds whatever the buffer holds above its cap to the principal, depositing it into
-    ///      the source. Called after every payout path, so the scheduled payout is taken
-    ///      from the buffer before anything is compounded.
+    ///      the source. Called after every payout path, so the scheduled payout and a spend
+    ///      are taken from the buffer before anything is compounded.
     function _compound(uint256 positionId, Position storage pos) private {
         uint256 cap = pos.bufferCap;
         if (pos.buffer <= cap) return;
