@@ -93,13 +93,13 @@ QoreChain testnet (`qorechain-diana`, EVM chain id 9800).
 | MockYieldSource (5% a year, simulated) | `0xBcC4ABe0B3aBfABa14eA1eFDBE5c87035f167f17` (`qor1hnz2hc9n40at5982rm7muhy8qd03vlchx773pc`) |
 | Asset (fUSD) | `0x97143B771D34ddb9130b807b135Ae675A5a963CA` |
 | Deployer | `0x825c2e0282c4681fad2f99F514d3D3003cd27432` (`qor1sfwzuq5zc35pltf0n863f57nqq7dyapj6gqlyg`) |
-| Pension holder whose classical key is public | `0x38FbFDdAE9E53fFb221c0b7E8dF993dC8C75917c` (`qor18ralmkhfu5llkgsupdlgm7vnmjx8tytunvzdqe`) |
+| Adversarial test account | `0x38FbFDdAE9E53fFb221c0b7E8dF993dC8C75917c` (`qor18ralmkhfu5llkgsupdlgm7vnmjx8tytunvzdqe`) |
 
-The pension holder above is a deliberate test: its secp256k1 private key is
-published, and its savings sit in position 2 of the vault. With the
-classical key alone nobody can claim, check in, change its heirs or close
-the position, and it keeps no EVM window open, so the key cannot move its
-QOR either.
+The adversarial test account exists to be attacked: treat its secp256k1
+private key as compromised. Its savings sit in position 2 of the vault. With
+the classical key alone nobody can claim, check in, change its heirs or
+close the position, and it keeps no EVM window open, so that key cannot move
+its QOR either.
 
 `pnpm e2e <vault>` in `contracts/` opens a position on the live vault, checks
 in, claims and closes with real ML-DSA-87 signatures, and confirms that a
