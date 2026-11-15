@@ -157,5 +157,15 @@ Read and measured on 15 November 2026.
 - Testnet blocks arrive about every 1.4 seconds; the EVM gas price was
   112.5 gwei.
 
+- The EVM JSON-RPC answers `eth_getLogs` for at most 10,000 blocks per
+  request and accepts batched requests. There is no Multicall3 contract.
+- The explorer (<https://explore.qore.network>) opens on mainnet and switches
+  to the testnet with its own toggle, which sets a cookie; no URL selects the
+  testnet. It finds native transactions by their upper-case hash without a
+  prefix, and has no page for EVM transaction hashes. Address pages work.
+  Source: <https://docs.qorechain.io/getting-started/connecting-to-testnet>
+  ("toggle to Testnet") and the explorer itself.
+- The testnet faucet is on the dashboard: <https://dashboard.qorechain.io/faucet>.
+
 How the web app deals with this is
 [decision 003](decisions/003-browser-signing.md).
