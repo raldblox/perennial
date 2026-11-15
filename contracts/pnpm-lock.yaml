@@ -14,9 +14,15 @@ importers:
       '@qorechain/evm':
         specifier: ^0.14.0
         version: 0.14.0(viem@2.57.19(typescript@5.9.3))
+      '@qorechain/pqc':
+        specifier: ^0.2.3
+        version: 0.2.3
       '@qorechain/sdk':
         specifier: ^0.14.0
         version: 0.14.0(viem@2.57.19(typescript@5.9.3))
+      viem:
+        specifier: ^2.0.0
+        version: 2.57.19(typescript@5.9.3)
     devDependencies:
       '@types/node':
         specifier: ^22.7.5
@@ -27,9 +33,6 @@ importers:
       typescript:
         specifier: ^5.6.3
         version: 5.9.3
-      viem:
-        specifier: ^2.0.0
-        version: 2.57.19(typescript@5.9.3)
 
 packages:
 
@@ -831,7 +834,7 @@ snapshots:
 
   '@scure/bip32@1.7.0':
     dependencies:
-      '@noble/curves': 1.9.1
+      '@noble/curves': 1.9.7
       '@noble/hashes': 1.8.0
       '@scure/base': 1.2.6
 
