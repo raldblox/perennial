@@ -105,8 +105,8 @@ On QoreChain an account can send EVM transactions only after it has
 registered an ML-DSA-87 key and opened an EVM authorisation window.
 
 ```sh
-cp .env.example .env        # set PRIVATE_KEY and QORE_PQC_RECOVERY_CODE
-pnpm window recovery-code   # prints a new recovery code, if you need one
+cp .env.example .env        # set QORE_MNEMONIC, or PRIVATE_KEY with a recovery code
+pnpm window status          # shows the account, its key and its window
 pnpm window register        # once per account
 pnpm window open
 pnpm deploy:dry-run         # simulation only

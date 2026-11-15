@@ -12,7 +12,9 @@ import {IYieldSource} from "../src/interfaces/IYieldSource.sol";
 ///      first (`pnpm window register`, `pnpm window open`).
 ///
 ///      Environment:
-///        PRIVATE_KEY     deployer key
+///        PRIVATE_KEY     deployer key, or
+///        QORE_MNEMONIC   the deployer's BIP-39 mnemonic (account m/44'/60'/0'/0/0), used
+///                        when PRIVATE_KEY is unset or left as the zero placeholder
 ///        ASSET           token the vault holds (default: testnet fUSD)
 ///        YIELD_SOURCE    an existing ERC-4626-style source for ASSET; when unset, a
 ///                        MockYieldSource is deployed
@@ -25,7 +27,7 @@ contract Deploy is Script {
     address internal constant TESTNET_FUSD = 0x97143B771D34ddb9130b807b135Ae675A5a963CA;
 
     function run() external returns (PerennialVault vault, IYieldSource source) {
-        uint256 deployerKey = vm.envUint("PRIVATE_KEY");
+        uint256 deployerKey = _deployerKey();
         IERC20 asset = IERC20(vm.envOr("ASSET", TESTNET_FUSD));
         address existingSource = vm.envOr("YIELD_SOURCE", address(0));
         uint256 mockRate = vm.envOr("MOCK_RATE", uint256(0.05e18));
@@ -51,6 +53,11 @@ contract Deploy is Script {
 
         console.log("PerennialVault:", address(vault));
         console.log("Asset:", address(asset));
+    }
+
+    function _deployerKey() internal view returns (uint256 key) {
+        key = vm.envOr("PRIVATE_KEY", uint256(0));
+        if (key == 0) key = vm.deriveKey(vm.envString("QORE_MNEMONIC"), 0);
     }
 
     /// @dev An inactive precompile answers with empty data. Stop before deploying a vault
