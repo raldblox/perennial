@@ -5,6 +5,8 @@ libs = ["lib"]
 test = "test"
 script = "script"
 solc_version = "0.8.28"
+# Pinned so a rebuild matches the deployed bytecode (docs/deployments.md).
+evm_version = "prague"
 optimizer = true
 optimizer_runs = 200
 remappings = [
