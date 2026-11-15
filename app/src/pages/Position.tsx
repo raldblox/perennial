@@ -112,7 +112,7 @@ export function PositionPage({ id }: { id: bigint }) {
           <Figure label={copy.pending} note={copy.pendingNote}>
             <Amount value={p.pendingYield} decimals={decimals} unit={symbol} fraction={4} />
           </Figure>
-          <Figure label={copy.payableNow} note={line.periodsDue > 0n ? copy.due : `${copy.nextPayout} ${formatRelative(line.nextPayoutAt, t)}`}>
+          <Figure label={copy.payableNow} note={s.closed ? actionCopy.unavailable.closed : line.periodsDue > 0n ? copy.due : `${copy.nextPayout} ${formatRelative(line.nextPayoutAt, t)}`}>
             <Amount value={payable} decimals={decimals} unit={symbol} fraction={4} />
           </Figure>
         </div>
@@ -130,9 +130,15 @@ export function PositionPage({ id }: { id: bigint }) {
               <div>
                 <dt>{copy.nextPayout}</dt>
                 <dd>
-                  {line.periodsDue > 0n ? copy.due : formatRelative(line.nextPayoutAt, t)}
-                  <br />
-                  <span className="faint small">{formatUtc(line.nextPayoutAt)}</span>
+                  {s.closed ? (
+                    actionCopy.unavailable.closed
+                  ) : (
+                    <>
+                      {line.periodsDue > 0n ? copy.due : formatRelative(line.nextPayoutAt, t)}
+                      <br />
+                      <span className="faint small">{formatUtc(line.nextPayoutAt)}</span>
+                    </>
+                  )}
                 </dd>
               </div>
               <div>
