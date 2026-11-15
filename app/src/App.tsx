@@ -3,6 +3,8 @@ import { Layout } from "./components/Layout";
 import { notFound } from "./copy";
 import { Landing } from "./pages/Landing";
 import { Open } from "./pages/Open";
+import { PositionPage } from "./pages/Position";
+import { Positions } from "./pages/Positions";
 import { href, useRoute } from "./router";
 
 const TITLES = {
@@ -28,7 +30,9 @@ export function App() {
     <Layout route={route}>
       {route.name === "overview" ? <Landing /> : null}
       {route.name === "open" ? <Open /> : null}
-      {route.name !== "overview" && route.name !== "open" ? (
+      {route.name === "positions" ? <Positions address={route.address} /> : null}
+      {route.name === "position" ? <PositionPage key={route.id.toString()} id={route.id} /> : null}
+      {route.name === "not-found" ? (
         <div className="page section stack">
           <h1 style={{ fontSize: "var(--size-h2)" }}>{notFound.title}</h1>
           <p className="muted">{notFound.body}</p>
