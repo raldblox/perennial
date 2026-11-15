@@ -12,7 +12,11 @@ function Hero() {
       <div className="split">
         <div>
           <p className="label">{hero.label}</p>
-          <h1 id="hero-title">{hero.headline}</h1>
+          <h1 id="hero-title" aria-label={hero.headline}>
+            {hero.headlineLines.map((line) => (
+              <span key={line}>{line}</span>
+            ))}
+          </h1>
           <p className="lede">{hero.lede}</p>
           <div className="row actions">
             <a className="button primary" href={href({ name: "open" })}>

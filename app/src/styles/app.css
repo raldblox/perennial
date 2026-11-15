@@ -93,6 +93,10 @@ code,
   border: 0;
 }
 
+main:focus {
+  outline: none;
+}
+
 .skip-link {
   position: absolute;
   left: var(--gutter);
@@ -281,8 +285,14 @@ code,
 .site-footer dl {
   display: grid;
   gap: var(--space-2) var(--space-5);
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   margin: var(--space-4) 0 0;
+}
+
+@media (min-width: 40rem) {
+  .site-footer dl {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
 }
 
 .site-footer dt {
@@ -527,8 +537,8 @@ textarea {
 
 .ledger > div {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--space-4);
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-1) var(--space-4);
   padding: var(--space-3) 0;
   border-bottom: 1px solid var(--rule);
   align-items: baseline;
@@ -540,9 +550,19 @@ textarea {
 
 .ledger dd {
   margin: 0;
-  text-align: right;
+  text-align: left;
   font-variant-numeric: tabular-nums lining-nums;
   overflow-wrap: anywhere;
+}
+
+@media (min-width: 40rem) {
+  .ledger > div {
+    grid-template-columns: minmax(9rem, max-content) minmax(0, 1fr);
+  }
+
+  .ledger dd {
+    text-align: right;
+  }
 }
 
 .ledger .total {
@@ -649,6 +669,11 @@ th.num {
 }
 
 /* Address */
+.address a,
+.address button {
+  font-family: var(--font-text);
+}
+
 .address {
   display: inline-flex;
   flex-wrap: wrap;
@@ -756,7 +781,16 @@ dialog[open] {
 
 .hero h1 {
   margin: var(--space-4) 0 var(--space-5);
-  max-width: 14ch;
+}
+
+.hero h1 span {
+  display: block;
+}
+
+@media (min-width: 60rem) {
+  .hero h1 span {
+    white-space: nowrap;
+  }
 }
 
 .hero .actions {

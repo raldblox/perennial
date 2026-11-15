@@ -137,7 +137,7 @@ export function PositionPage({ id }: { id: bigint }) {
               </div>
               <div>
                 <dt>{copy.covered}</dt>
-                <dd>{covered === null ? copy.payoutEverything : covered === 0n ? copy.coveredNone : covered.toString()}</dd>
+                <dd>{covered === null ? copy.coveredEverything : covered === 0n ? copy.coveredNone : covered.toString()}</dd>
               </div>
               {expected !== null ? (
                 <div>

@@ -25,6 +25,7 @@ export const nav = {
 export const hero = {
   label: "On-chain endowment · QoreChain testnet",
   headline: "Spend the income. Never the capital.",
+  headlineLines: ["Spend the income.", "Never the capital."],
   lede:
     "Perennial keeps capital on chain and pays out only what it earns, on a schedule, to a beneficiary who checks in. Nobody holds the keys. Every instruction carries an ML-DSA-87 signature, so a classical key recovered by a quantum computer moves nothing.",
   primary: "Open a position",
@@ -397,6 +398,7 @@ export const position = {
   due: "Due now",
   covered: "Payouts the buffer covers",
   coveredNone: "Not one full payout yet",
+  coveredEverything: "Each payout is the whole buffer",
   expectedYield: "Expected yield per interval",
   selfFunding: "The expected yield covers the payout.",
   drawingDown: "The expected yield is less than the payout. Payouts will be partial once the buffer is empty.",
