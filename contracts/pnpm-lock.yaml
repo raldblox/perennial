@@ -27,6 +27,9 @@ importers:
       '@types/node':
         specifier: ^22.7.5
         version: 22.20.5
+      create-qorechain-dapp:
+        specifier: ^0.14.0
+        version: 0.14.0
       tsx:
         specifier: ^4.19.0
         version: 4.23.15
@@ -41,6 +44,14 @@ packages:
 
   '@bufbuild/protobuf@2.17.0':
     resolution: {integrity: sha512-hcPkSz6D7MiTU/5VBBhK+kxaYDoOdQ6yJRFJ3kS8Nydp+VZXfg1vrpABKPNod8bXMufsVCmiUJVIKFzCzta4uw==}
+
+  '@clack/core@0.3.5':
+    resolution: {integrity: sha512-5cfhQNH+1VQ2xLQlmzXMqUoiaH0lRBq9/CLW9lTyMbuKLC3+xEK01tHVvyut++mLOn5urSHmkm6I0Lg9MaJSTQ==}
+
+  '@clack/prompts@0.7.0':
+    resolution: {integrity: sha512-0MhX9/B4iL6Re04jPrttDm+BsP8y6mS7byuv0BvXgdXhbV5PdlsHt55dvNsuBCPZ7xq1oTAOOuotR9NFbQyMSA==}
+    bundledDependencies:
+      - is-unicode-supported
 
   '@cosmjs/amino@0.38.1':
     resolution: {integrity: sha512-WaThDpq2JwUyKuazq08Xa+FHzQ3jh1HcYnGL4xsyfqFwOlAvnl0EDvSSz9WSwz1oopIxFE9Qtf3OUKOlxBZbYA==}
@@ -361,6 +372,11 @@ packages:
     resolution: {integrity: sha512-kDSkgHpRTrg1413jCNehT3P21+EBxZWFMBr9JEzVfmPiNdtuwAoLAkCYo7c7i/pTakAwyHsXbxOg8kkD+AN33w==}
     engines: {node: '>=20.19'}
 
+  create-qorechain-dapp@0.14.0:
+    resolution: {integrity: sha512-W4Xb5fOUuAaXZh6um4pVuHvX4glou5/I95eiXV9dM0RpZCGQQakY8LbskF10XLmNcNtofUMjY6+gFfjuj4awwA==}
+    engines: {node: '>=20'}
+    hasBin: true
+
   define-data-property@1.1.4:
     resolution: {integrity: sha512-rBMvIzlpA8v6E+SJZoo++HAYqsLrkg7MSfIinMPFhmkorw7X+dOXVJQs+QT69zGkzMyfDnIMN2Wid1+NbL3T+A==}
     engines: {node: '>= 0.4'}
@@ -434,8 +450,14 @@ packages:
       typescript:
         optional: true
 
+  picocolors@1.1.1:
+    resolution: {integrity: sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA==}
+
   readonly-date-esm@2.0.0:
     resolution: {integrity: sha512-adlyzz144ofU22kjnnRIN0HPPqIbc5IZvMmMuVtEgMY4mKgNyKqOVb4Fa2GUzE2By4TEPOYoGqDoKRyqmeEuPQ==}
+
+  sisteransi@1.0.5:
+    resolution: {integrity: sha512-bLGGlR1QxBcynn2d5YmDX4MGjlZvy2MRBDRNHLJ8VI6l6+9FUiyTFNJ0IveOSP0bcXgVDPRcfGqA0pjaqUpfVg==}
 
   symbol-observable@2.0.3:
     resolution: {integrity: sha512-sQV7phh2WCYAn81oAkakC5qjq2Ml0g8ozqz03wOGnx9dDlG1de6yrF+0RAzSJD8fPUow3PTSMf2SAbOGxb93BA==}
@@ -497,6 +519,17 @@ snapshots:
   '@adraffy/ens-normalize@1.11.1': {}
 
   '@bufbuild/protobuf@2.17.0': {}
+
+  '@clack/core@0.3.5':
+    dependencies:
+      picocolors: 1.1.1
+      sisteransi: 1.0.5
+
+  '@clack/prompts@0.7.0':
+    dependencies:
+      '@clack/core': 0.3.5
+      picocolors: 1.1.1
+      sisteransi: 1.0.5
 
   '@cosmjs/amino@0.38.1':
     dependencies:
@@ -861,6 +894,11 @@ snapshots:
 
   cosmjs-types@0.11.0: {}
 
+  create-qorechain-dapp@0.14.0:
+    dependencies:
+      '@clack/prompts': 0.7.0
+      picocolors: 1.1.1
+
   define-data-property@1.1.4:
     dependencies:
       es-define-property: 1.0.1
@@ -961,7 +999,11 @@ snapshots:
     transitivePeerDependencies:
       - zod
 
+  picocolors@1.1.1: {}
+
   readonly-date-esm@2.0.0: {}
+
+  sisteransi@1.0.5: {}
 
   symbol-observable@2.0.3: {}
 
