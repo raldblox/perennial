@@ -34,6 +34,7 @@ contract Deploy is Script {
         uint256 mockReserve = vm.envOr("MOCK_RESERVE", uint256(0));
 
         _requirePrecompiles();
+        _standInForSimulation();
 
         vm.startBroadcast(deployerKey);
         if (existingSource == address(0)) {
@@ -48,11 +49,23 @@ contract Deploy is Script {
             source = IYieldSource(existingSource);
             console.log("Yield source (existing):", existingSource);
         }
-        vault = new PerennialVault(asset, source, PQC_VERIFY, PQC_KEY_STATUS);
+        vault = new PerennialVault(asset, source);
         vm.stopBroadcast();
 
         console.log("PerennialVault:", address(vault));
         console.log("Asset:", address(asset));
+    }
+
+    /// @dev Foundry runs the script on its own copy of the chain first, and that copy has
+    ///      no QoreChain precompiles, so the vault's constructor check would fail there.
+    ///      Only for that local run, answer at the precompile addresses the way the chain
+    ///      does for an unknown account. `_requirePrecompiles` has already confirmed the
+    ///      real ones are active; the broadcast transactions run against those.
+    function _standInForSimulation() internal {
+        if (PQC_KEY_STATUS.code.length == 0) {
+            vm.etch(PQC_KEY_STATUS, type(KeyStatusStandIn).runtimeCode);
+        }
+        if (PQC_VERIFY.code.length == 0) vm.etch(PQC_VERIFY, type(VerifyStandIn).runtimeCode);
     }
 
     function _deployerKey() internal view returns (uint256 key) {
@@ -74,5 +87,19 @@ contract Deploy is Script {
         );
         bytes memory ret = vm.rpc("eth_call", params);
         require(ret.length >= 160, "PQC key status precompile is not active on this chain");
+    }
+}
+
+/// @dev Simulation-only stand-in: an account with no registered key.
+contract KeyStatusStandIn {
+    fallback(bytes calldata) external returns (bytes memory) {
+        return abi.encode(false, uint8(0), bytes(""), false);
+    }
+}
+
+/// @dev Simulation-only stand-in: no signature verifies.
+contract VerifyStandIn {
+    fallback(bytes calldata) external returns (bytes memory) {
+        return abi.encode(false);
     }
 }
