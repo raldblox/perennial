@@ -78,4 +78,28 @@ abstract contract VaultFixture is Test {
     function _open() internal returns (uint256 positionId) {
         return _open(_params());
     }
+
+    function _deadline() internal view returns (uint256) {
+        return block.timestamp + 1 hours;
+    }
+
+    /// @dev Signs an action at the position's current nonce.
+    function _sign(
+        bytes32 secret,
+        uint256 positionId,
+        PerennialVault.Action action,
+        uint256 deadline,
+        bytes32 paramsHash
+    ) internal view returns (bytes memory) {
+        uint256 nonce = vault.position(positionId).nonce;
+        return
+            pqc.sign(secret, vault.actionMessage(positionId, action, nonce, deadline, paramsHash));
+    }
+
+    function _claim(uint256 positionId) internal returns (uint256 paid) {
+        uint256 deadline = _deadline();
+        bytes memory signature =
+            _sign(BENEFICIARY_SECRET, positionId, PerennialVault.Action.Claim, deadline, 0);
+        return vault.claim(positionId, deadline, signature);
+    }
 }

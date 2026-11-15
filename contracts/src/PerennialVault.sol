@@ -19,6 +19,17 @@ contract PerennialVault is ReentrancyGuard {
     /// @notice Heir weights are in basis points and must add up to this.
     uint256 public constant BPS = 10_000;
     uint256 public constant MAX_HEIRS = 16;
+    /// @notice Domain tag of every signed action, so a signature made for this protocol
+    ///         means nothing anywhere else.
+    bytes32 public constant ACTION_DOMAIN = keccak256("Perennial.Action.v1");
+
+    /// @notice The actions that need an ML-DSA-87 signature.
+    enum Action {
+        CheckIn,
+        Claim,
+        SetHeirs,
+        Close
+    }
 
     struct Heir {
         address account;
@@ -93,6 +104,9 @@ contract PerennialVault is ReentrancyGuard {
     event ToppedUp(uint256 indexed positionId, address indexed from, uint256 amount);
     event HeirsSet(uint256 indexed positionId, Heir[] heirs);
     event Harvested(uint256 indexed positionId, address indexed caller, uint256 yield);
+    event Claimed(
+        uint256 indexed positionId, address indexed beneficiary, uint256 amount, uint256 periods
+    );
 
     error ZeroAddress();
     error ZeroAmount();
@@ -105,6 +119,9 @@ contract PerennialVault is ReentrancyGuard {
     error InvalidHeir();
     error DuplicateHeir(address account);
     error HeirWeightsMustTotalBps();
+    error SignatureExpired(uint256 deadline);
+    error PositionSucceeded(uint256 positionId);
+    error PayoutNotDue(uint256 positionId, uint256 dueAt);
 
     constructor(IERC20 asset, IYieldSource source, address pqcVerify, address pqcKeyStatus) {
         if (
@@ -189,8 +206,62 @@ contract PerennialVault is ReentrancyGuard {
     }
 
     // ------------------------------------------------------------------
+    // Payouts
+    // ------------------------------------------------------------------
+
+    /// @notice Pay the beneficiary what the schedule owes, from the buffer only.
+    /// @dev Authorised by the beneficiary's ML-DSA-87 signature, not by the sender, so anyone
+    ///      may submit it and the money still goes to the beneficiary. Pending yield is
+    ///      harvested first. A period the buffer cannot fund in full is paid in part and is
+    ///      not carried over: payouts never exceed what the principal has earned.
+    function claim(uint256 positionId, uint256 deadline, bytes calldata signature)
+        external
+        nonReentrant
+        returns (uint256 paid)
+    {
+        Position storage pos = _live(positionId);
+        if (pos.succeeded) revert PositionSucceeded(positionId);
+        _authorize(positionId, pos, pos.beneficiary, Action.Claim, deadline, 0, signature);
+
+        _harvest(positionId, pos);
+        uint256 periods;
+        (paid, periods) = _settle(positionId, pos);
+
+        if (paid != 0) ASSET.safeTransfer(pos.beneficiary, paid);
+        emit Claimed(positionId, pos.beneficiary, paid, periods);
+    }
+
+    // ------------------------------------------------------------------
     // Views
     // ------------------------------------------------------------------
+
+    /// @notice The exact bytes an account signs with ML-DSA-87 to authorise an action.
+    /// @param nonce The position's current nonce, from `position(positionId).nonce`.
+    /// @param paramsHash Hash of the action's arguments, or zero when it has none.
+    function actionMessage(
+        uint256 positionId,
+        Action action,
+        uint256 nonce,
+        uint256 deadline,
+        bytes32 paramsHash
+    ) public view returns (bytes memory) {
+        return abi.encode(
+            ACTION_DOMAIN,
+            block.chainid,
+            address(this),
+            positionId,
+            uint8(action),
+            nonce,
+            deadline,
+            paramsHash
+        );
+    }
+
+    /// @notice When the next payout becomes due.
+    function nextPayoutAt(uint256 positionId) external view returns (uint256) {
+        Position storage pos = _existing(positionId);
+        return uint256(pos.lastPayout) + pos.payoutInterval;
+    }
 
     /// @notice Yield a harvest would move into the buffer right now.
     function pendingYield(uint256 positionId) external view returns (uint256) {
@@ -221,6 +292,40 @@ contract PerennialVault is ReentrancyGuard {
     function _live(uint256 positionId) private view returns (Position storage pos) {
         pos = _existing(positionId);
         if (pos.closed) revert PositionClosed(positionId);
+    }
+
+    /// @dev Checks `signer`'s ML-DSA-87 signature over this exact action and consumes the
+    ///      position's nonce, so the signature cannot be used again.
+    function _authorize(
+        uint256 positionId,
+        Position storage pos,
+        address signer,
+        Action action,
+        uint256 deadline,
+        bytes32 paramsHash,
+        bytes calldata signature
+    ) private {
+        if (block.timestamp > deadline) revert SignatureExpired(deadline);
+        bytes memory message = actionMessage(positionId, action, pos.nonce++, deadline, paramsHash);
+        PQCAuth.requireSignature(PQC_VERIFY, PQC_KEY_STATUS, signer, message, signature);
+    }
+
+    /// @dev Takes what the schedule owes out of the buffer and advances the schedule by the
+    ///      whole periods that have passed.
+    function _settle(uint256 positionId, Position storage pos)
+        private
+        returns (uint256 amount, uint256 periods)
+    {
+        periods = (block.timestamp - pos.lastPayout) / pos.payoutInterval;
+        if (periods == 0) {
+            revert PayoutNotDue(positionId, uint256(pos.lastPayout) + pos.payoutInterval);
+        }
+
+        uint256 owed = pos.payoutAmount == 0 ? pos.buffer : pos.payoutAmount * periods;
+        amount = owed < pos.buffer ? owed : pos.buffer;
+
+        pos.buffer -= amount;
+        pos.lastPayout += uint64(periods * pos.payoutInterval);
     }
 
     /// @dev Keeps exactly the shares needed to withdraw the principal and redeems the rest.
