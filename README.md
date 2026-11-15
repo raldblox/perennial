@@ -1,5 +1,9 @@
 # Perennial
 
+[![contracts](https://github.com/raldblox/perennial/actions/workflows/contracts.yml/badge.svg)](https://github.com/raldblox/perennial/actions/workflows/contracts.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Built on QoreChain](https://build.qorechain.io/badge/perennial.svg)](https://build.qorechain.io/p/perennial)
+
 ![Perennial](docs/assets/cover.png)
 
 A post-quantum pension protocol for humans and AI agents on QoreChain.
