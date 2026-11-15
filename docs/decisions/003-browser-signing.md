@@ -84,10 +84,16 @@ Option 4, with these limits, all of them stated in the app where the phrase is
 entered:
 
 - **Reading needs nothing.** Every screen works without an account.
-- **The phrase lives in one JavaScript variable of the open tab.** It is never
-  written to storage, a cookie, the URL or the network, and never logged. It is
-  dropped when the user locks the account, after 15 minutes without activity,
-  and when the tab closes. Reloading the page forgets it.
+- **The phrase is used once, then cleared; the derived keys live in memory.**
+  The page derives the EVM account's secp256k1 key and the two ML-DSA-87 keys,
+  clears the phrase from the form, and keeps only the keys, in one module of
+  the open tab. Nothing is written to storage, a cookie, the URL or the
+  network, and nothing is logged. The keys are dropped (and their bytes
+  zeroed where the libraries hand out byte arrays) when the user locks the
+  account, after 15 minutes without activity, and when the tab closes.
+  Reloading the page forgets them. JavaScript cannot guarantee that a string
+  copy of a secret is erased from memory, so this limits exposure; it does not
+  remove it.
 - **The page signs only what it shows.** Before each signed action the page
   reads `actionMessage` from the vault, displays the action, the position, the
   nonce and the expiry, and signs only after the user confirms. Signatures

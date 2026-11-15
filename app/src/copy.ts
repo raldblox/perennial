@@ -173,7 +173,7 @@ export const faq = {
     { q: "And if there are no heirs?", a: "Succession cannot happen. The income stays in the buffer, and only the beneficiary can claim it." },
     { q: "Who holds the keys?", a: "Nobody. The vault has no admin and no upgrade path. Every sensitive action needs the role holder's own ML-DSA-87 signature." },
     { q: "What does a quantum computer change?", a: "It could recover a classical secp256k1 key from its public key. In Perennial that key alone can claim nothing, check in for no one, change no heirs and close nothing. A stolen ML-DSA-87 key is a different matter: it can do whatever its role allows." },
-    { q: "How does this page sign?", a: "With a key derived from a recovery phrase you type into this tab. It stays in the tab's memory, is never stored or sent, and is dropped when you lock, after 15 minutes idle or when the tab closes. Anyone who controls this page's code while it is unlocked can sign as that account. Use a phrase made for the testnet." },
+    { q: "How does this page sign?", a: "With a key derived from a recovery phrase you type into this tab. The page derives the account's keys from it and then clears the phrase. The keys stay in the tab's memory, are never stored or sent, and are dropped when you lock, after 15 minutes idle or when the tab closes. Anyone who controls this page's code while it is unlocked can sign as that account. Use a phrase made for the testnet." },
   ],
 } as const;
 
@@ -240,8 +240,8 @@ export const unlock = {
   intro:
     "The QoreX wallet cannot yet sign arbitrary messages or EVM transactions for a web page, so this page signs with a key derived from your recovery phrase.",
   points: [
-    "The phrase stays in this tab's memory. It is never stored, never sent anywhere and never logged.",
-    "It is dropped when you lock, after 15 minutes without activity, and when you close or reload the tab.",
+    "The page derives this account's keys from the phrase, then clears the phrase. The keys stay in this tab's memory. Neither is stored, sent anywhere or logged.",
+    "The keys are dropped when you lock, after 15 minutes without activity, and when you close or reload the tab.",
     "While the account is unlocked, anyone who controls this page's code can sign as it. That includes whoever hosts the page and any browser extension that can read it.",
     "Use a phrase made for the testnet. Never a phrase that holds anything of value.",
   ],
