@@ -4,25 +4,43 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Built on QoreChain](https://build.qorechain.io/badge/perennial.svg)](https://build.qorechain.io/p/perennial)
 
-![Perennial](docs/assets/cover.png)
+![Perennial: spend the income, never the capital](docs/assets/cover.png)
 
-A post-quantum pension protocol for humans and AI agents on QoreChain.
+**Spend the income. Never the capital.**
 
-Deposit once. The principal stays invested and is never paid out; only what
-it earns is. Payouts follow a schedule, a missed proof of life hands the
-income to registered heirs, and every sensitive action needs an ML-DSA-87
-signature, so a pension keeps working after Q-Day.
+Perennial is an on-chain endowment with a living beneficiary. The capital is
+never paid out; only what it earns is, on a schedule. A check-in proves the
+beneficiary is still there, and when the check-ins stop, the income passes to
+named heirs. Nobody holds the keys: the vault has no admin, and every
+instruction that matters needs an ML-DSA-87 signature checked inside the
+contract, so a classical key recovered by a quantum computer moves nothing.
+
+It runs on the QoreChain testnet. The yield there is simulated.
 
 ## Why
 
-A pension is a promise that has to hold for decades. The signatures that
-protect today's accounts will not: a large enough quantum computer recovers a
-secp256k1 private key from its public key. Whoever holds that key can then
-redirect a pension, fake a proof of life, or take the capital.
+An income meant to last decades has to outlive the keys that set it up. The
+signatures that protect today's accounts will not last that long: a large
+enough quantum computer recovers a secp256k1 private key from its public key,
+and whoever holds that key can redirect a payout, fake a proof of life or take
+the capital.
 
-Perennial does not trust the classical key. Authority over a position is an
-ML-DSA-87 signature, checked inside the contract through QoreChain's
-post-quantum precompiles. A recovered classical key can do nothing to it.
+Products that fund something from yield exist, and most are a ledger run by
+an operator who holds the money. Perennial keeps the capital, the schedule,
+the heirs and every payout in a contract anyone can read, and trusts a
+post-quantum signature instead of an operator or a classical key.
+
+## Uses
+
+At 5% a year with a 1.15 margin (the sizing below); at 4%, add a quarter.
+
+| Use | Payout | Principal (fUSD) |
+|---|---|---|
+| An AI agent's running costs; its operators are the heirs | 250 a month | 69,000 |
+| A parent's income, passing to the children | 400 a month | 110,400 |
+| A personal income with heirs named up front | 1,000 a month | 276,000 |
+| An open-source maintainer's stipend | 1,500 a month | 414,000 |
+| A public good's fixed bill (endpoint, archive, domain) | 80 a month | 22,080 |
 
 ## How it works
 
@@ -39,8 +57,9 @@ flowchart LR
   source and is tracked as shares. Harvested yield lands in the position's
   *buffer*, and payouts are made from the buffer only.
 - **Sizing.** To pay out `C` per year at a yield rate `r`, deposit
-  `P = k · C / r`, where `k` is a safety margin (1.15 leaves 15% headroom).
-  At 5%, a payout of 400 a month needs about 110,400.
+  `P = k · C / r`, where `k` is a safety margin (1.15 leaves 15% headroom:
+  the yield can fall 13% before the payout outruns it). At 5%, a payout of
+  400 a month needs 110,400.
 - **Schedule.** Every `payoutInterval` the beneficiary can claim
   `payoutAmount`. A period the buffer cannot fund in full is paid in part and
   not carried over, so payouts never exceed what the principal has earned.
@@ -69,19 +88,19 @@ flowchart LR
 A signed action is bound to the chain, the vault, the position, the action,
 a nonce and a deadline. Because authority is the signature and not the
 sender, anyone can submit it, including a relayer that pays the fee. The
-reasoning is in [decision 001](docs/decisions/001-pq-signed-actions.md).
+reasoning is in [decision 001](docs/decisions/001-pq-signed-actions.md), and
+what this protects against, and what it does not, is in the
+[threat model](docs/threat-model.md).
 
 The vault has no admin, no upgrade path and no pause.
 
 ## Status
 
-Early development.
-
 | Part | State |
 |---|---|
 | Contracts | Implemented, 106 tests including invariant tests |
 | Testnet deployment | Live on `qorechain-diana`, exercised end to end with real ML-DSA-87 signatures |
-| Web app | Not started |
+| Web app | Overview, sizing, opening a position, the position page and every vault action; 107 tests |
 
 ### Testnet addresses
 
@@ -103,20 +122,68 @@ its QOR either.
 
 `pnpm e2e <vault>` in `contracts/` opens a position on the live vault, checks
 in, claims and closes with real ML-DSA-87 signatures, and confirms that a
-forged, a mismatched and a replayed signature are each refused.
+forged, a mismatched and a replayed signature are each refused. Positions 1
+and 3 are closed runs of it.
 
-**What is simulated.** The only yield source in the repository is
-`MockYieldSource`, which pays a fixed rate out of a pre-funded reserve. No
-real yield is earned yet; see
-[decision 002](docs/decisions/002-yield-source.md). Unit tests run against a
-mock of the PQC precompiles, because Foundry's local EVM does not have them;
-real ML-DSA-87 verification happens only on the chain.
+### What is simulated
+
+- **The yield.** The only yield source in the repository is
+  `MockYieldSource`, which pays a fixed 5% a year out of a reserve someone
+  funded in advance. Nothing earns it, and when the reserve runs short,
+  harvests and claims fail until it is refilled; see
+  [decision 002](docs/decisions/002-yield-source.md).
+- **The tokens.** fUSD is the testnet's dollar token. It has no value.
+- **The precompiles, in unit tests only.** Foundry's local EVM does not have
+  QoreChain's PQC precompiles, so unit tests run against a mock of them. Real
+  ML-DSA-87 verification happens only on the chain, in the end-to-end script
+  and in the app.
 
 **Where it runs.** The precompiles Perennial depends on are active on the
-QoreChain testnet (`qorechain-diana`, EVM chain id 9800) and not on mainnet.
-The deploy script refuses a chain without them.
+QoreChain testnet and not on mainnet. The deploy script refuses a chain
+without them. The contracts have not been audited.
 
-## Quickstart
+## The web app
+
+`app/` is a static React app: an overview with the sizing calculator and live
+figures read from the vault, a form to open a position (terms, heirs, review),
+and a page per position with its deadlines, history and every action. Every
+screen reads without an account.
+
+**How it signs.** The QoreX wallet cannot yet sign arbitrary bytes or EVM
+transactions for a web page, so the app derives the account's keys from a
+recovery phrase typed into the page, keeps them in that tab's memory only, and
+shows the exact bytes before every signature. Whoever controls the page's code
+while it is unlocked can sign as that account: use a testnet-only phrase. The
+options and the evidence are in
+[decision 003](docs/decisions/003-browser-signing.md).
+
+```sh
+cd app
+pnpm install
+pnpm dev          # http://localhost:5173
+pnpm test         # unit and component tests, chain mocked
+pnpm build        # static output in app/dist
+pnpm preview      # serve the build, with the native API forwarded
+```
+
+Configuration (chain, RPC, vault, asset) is in `app/src/config.ts`, with the
+testnet deployment as the default and `VITE_` overrides listed in
+`app/.env.example`. All wording is in `app/src/copy.ts`.
+
+**Hosting.** The build is static and holds no secrets. Reading the vault and
+sending transactions use the EVM JSON-RPC, which accepts any origin. Reading
+and opening the account's EVM window use the chain's REST API and CometBFT
+RPC, which refuse cross-origin requests, so the host must forward
+`/qore/rest/*` to `https://api-testnet.qore.host/*` and `/qore/rpc` to
+`https://rpc-testnet.qore.host/` (the dev and preview servers do), or
+`VITE_REST_URL` and `VITE_RPC_URL` must point at a proxy that does. Without
+that, the app still works, and asks the user to open the window in the QoreX
+app or with `pnpm window open`.
+
+`pnpm brand` in `app/` redraws the cover image, the link preview and the
+icons from the design tokens.
+
+## Quickstart (contracts)
 
 Requires [Foundry](https://getfoundry.sh), Node.js 20 or later and pnpm.
 
@@ -153,23 +220,46 @@ contracts/
   src/mocks/MockYieldSource.sol   fixed-rate source for tests and testnet
   script/Deploy.s.sol             deployment
   scripts/window.ts               key registration and EVM window helper
+  scripts/e2e.ts                  end-to-end run against the live vault
   test/                           unit, fuzz and invariant tests
+app/
+  src/config.ts                   chain, endpoints and addresses
+  src/copy.ts                     every word the app shows
+  src/chain/                      vault reads, writes, events, error decoding
+  src/signer/session.ts           the unlocked account's keys, in memory
+  src/lib/                        exact amounts, sizing, schedule, heirs
+  src/pages/, src/components/     the screens
+  scripts/brand.ts                cover image, link preview and icons
 docs/
   qorechain-notes.md              what the protocol relies on from the chain
+  threat-model.md                 assets, actors, trust, limitations
   decisions/                      design decisions
 ```
 
 ## Credits
 
 - [QoreChain](https://qorechain.io): the ML-DSA-87 precompiles, the SDK
-  (`@qorechain/sdk`, `@qorechain/evm`) and
+  (`@qorechain/sdk`, `@qorechain/evm`), `@qorechain/pqc`,
+  `@qorechain/qorex-rainbowkit` and
   [`create-qorechain-dapp`](https://www.npmjs.com/package/create-qorechain-dapp),
-  whose Foundry template (Apache-2.0) the contracts tooling and
-  `scripts/window.ts` start from.
+  whose Foundry template the contracts tooling and `scripts/window.ts` start
+  from, and whose `viem-wagmi` template the app starts from (Apache-2.0).
 - [OpenZeppelin Contracts](https://github.com/OpenZeppelin/openzeppelin-contracts) (MIT).
 - [Foundry](https://github.com/foundry-rs/foundry) and
   [forge-std](https://github.com/foundry-rs/forge-std) (MIT / Apache-2.0).
 - [CosmJS](https://github.com/cosmos/cosmjs) (Apache-2.0).
+- [viem](https://viem.sh), [wagmi](https://wagmi.sh) and
+  [RainbowKit](https://rainbowkit.com) (MIT).
+- [React](https://react.dev), [TanStack Query](https://tanstack.com/query),
+  [Vite](https://vite.dev), [Vitest](https://vitest.dev),
+  [Testing Library](https://testing-library.com),
+  [ESLint](https://eslint.org) and
+  [typescript-eslint](https://typescript-eslint.io) (MIT).
+- [satori](https://github.com/vercel/satori) and
+  [resvg-js](https://github.com/thx/resvg-js) (MPL-2.0), for the images.
+- Fonts, bundled through [Fontsource](https://fontsource.org):
+  [Source Serif 4](https://github.com/adobe-fonts/source-serif) and
+  [IBM Plex](https://github.com/IBM/plex) (SIL Open Font License 1.1).
 
 ## License
 
