@@ -23,7 +23,8 @@ export default defineConfig({
   plugins: [react()],
   server: { port: 5173, proxy },
   preview: { port: 4173, proxy },
-  build: { target: "es2022", sourcemap: true },
+  // The signer chunk carries the QoreChain SDK and loads only when an account is unlocked.
+  build: { target: "es2022", sourcemap: true, chunkSizeWarningLimit: 3_000 },
   test: {
     environment: "jsdom",
     globals: true,

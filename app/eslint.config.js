@@ -20,6 +20,7 @@ export default tseslint.config(
       "@typescript-eslint/restrict-template-expressions": ["error", { allowNumber: true }],
       "@typescript-eslint/no-confusing-void-expression": "off",
       "no-console": "error",
+      "jsx-a11y/label-has-associated-control": ["error", { depth: 3 }],
     },
   },
   { files: ["eslint.config.js"], ...tseslint.configs.disableTypeChecked },

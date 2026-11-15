@@ -1,29 +1,23 @@
-import "@rainbow-me/rainbowkit/styles.css";
+import "@fontsource-variable/source-serif-4/wght.css";
+import "@fontsource/ibm-plex-sans/latin-400.css";
+import "@fontsource/ibm-plex-sans/latin-500.css";
+import "@fontsource/ibm-plex-sans/latin-600.css";
+import "@fontsource/ibm-plex-mono/latin-400.css";
+import "./styles/tokens.css";
+import "./styles/app.css";
 
-import { RainbowKitProvider } from "@rainbow-me/rainbowkit";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import React from "react";
+import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { WagmiProvider } from "wagmi";
-
-import { App } from "./App.js";
-import { config } from "./wagmi.js";
-
-const queryClient = new QueryClient();
+import { App } from "./App";
+import { Providers } from "./providers";
 
 const container = document.getElementById("root");
-if (!container) {
-  throw new Error("Root element #root not found");
-}
+if (!container) throw new Error("Root element #root not found");
 
 createRoot(container).render(
-  <React.StrictMode>
-    <WagmiProvider config={config}>
-      <QueryClientProvider client={queryClient}>
-        <RainbowKitProvider>
-          <App />
-        </RainbowKitProvider>
-      </QueryClientProvider>
-    </WagmiProvider>
-  </React.StrictMode>,
+  <StrictMode>
+    <Providers>
+      <App />
+    </Providers>
+  </StrictMode>,
 );

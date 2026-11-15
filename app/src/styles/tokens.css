@@ -1,0 +1,92 @@
+/*
+ * Design tokens. Every colour, size and duration the app uses is defined here
+ * once. The cover image generator reads the same values (scripts/brand.ts).
+ *
+ * One accent (ink blue). Status colours are semantic and used only for status
+ * text. Contrast: every text token meets WCAG AA on --paper and --field in both
+ * themes (checked in src/styles/tokens.test.ts).
+ */
+:root {
+  color-scheme: light;
+
+  --paper: #f6f4ee;
+  --field: #fffdf8;
+  --ink: #1b1b18;
+  --ink-2: #47463f;
+  --ink-3: #64625a;
+  --rule: #d9d5ca;
+  --rule-strong: #1b1b18;
+  --accent: #2a44b8;
+  --accent-hover: #213895;
+  --accent-ink: #ffffff;
+  --accent-wash: #e6e9f6;
+  --ok: #2c6638;
+  --warn: #8a4b00;
+  --danger: #a3271c;
+  --focus: #2a44b8;
+
+  --font-display: "Source Serif 4 Variable", "Source Serif 4", Georgia, "Times New Roman", serif;
+  --font-text: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+
+  --size-label: 0.75rem;
+  --size-small: 0.875rem;
+  --size-body: 1rem;
+  --size-lede: 1.1875rem;
+  --size-h3: 1.375rem;
+  --size-h2: clamp(1.75rem, 1.2rem + 2.2vw, 2.5rem);
+  --size-h1: clamp(2.5rem, 1.4rem + 4.6vw, 4.5rem);
+  --size-figure: clamp(1.75rem, 1.3rem + 1.8vw, 2.625rem);
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4.5rem;
+  --space-9: 7rem;
+
+  --measure: 62ch;
+  --page: 72rem;
+  --gutter: 1rem;
+  --radius: 2px;
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --fast: 120ms;
+  --slow: 240ms;
+}
+
+@media (min-width: 48rem) {
+  :root {
+    --gutter: 2rem;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --paper: #131311;
+    --field: #1b1b18;
+    --ink: #ece9e1;
+    --ink-2: #c4c0b5;
+    --ink-3: #a29e93;
+    --rule: #34332e;
+    --rule-strong: #ece9e1;
+    --accent: #9aabff;
+    --accent-hover: #b8c4ff;
+    --accent-ink: #10132a;
+    --accent-wash: #1d2240;
+    --ok: #8fc99c;
+    --warn: #e3a95e;
+    --danger: #f2948a;
+    --focus: #9aabff;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --fast: 0ms;
+    --slow: 0ms;
+  }
+}
