@@ -29,9 +29,6 @@ importers:
       '@qorechain/qorex-rainbowkit':
         specifier: ^0.1.0
         version: 0.1.0(@rainbow-me/rainbowkit@2.2.11(@tanstack/react-query@5.107.1(@types/react@18.3.31)(react@18.3.1))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(typescript@5.9.3)(viem@2.53.1(bufferutil@4.2.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.6.7))(wagmi@2.19.5(@tanstack/query-core@5.107.1)(@tanstack/react-query@5.107.1(@types/react@18.3.31)(react@18.3.1))(@types/react@18.3.31)(bufferutil@4.2.0)(react@18.3.1)(typescript@5.9.3)(utf-8-validate@5.0.10)(viem@2.53.1(bufferutil@4.2.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.6.7))(zod@4.6.7)))(viem@2.53.1(bufferutil@4.2.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.6.7))(wagmi@2.19.5(@tanstack/query-core@5.107.1)(@tanstack/react-query@5.107.1(@types/react@18.3.31)(react@18.3.1))(@types/react@18.3.31)(bufferutil@4.2.0)(react@18.3.1)(typescript@5.9.3)(utf-8-validate@5.0.10)(viem@2.53.1(bufferutil@4.2.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.6.7))(zod@4.6.7))
-      '@qorechain/qorex-types':
-        specifier: ^0.1.0
-        version: 0.1.0
       '@qorechain/sdk':
         specifier: ^0.14.0
         version: 0.14.0(bufferutil@4.2.0)(utf-8-validate@5.0.10)(viem@2.53.1(bufferutil@4.2.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.6.7))
