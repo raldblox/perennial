@@ -74,8 +74,23 @@ Early development.
 | Part | State |
 |---|---|
 | Contracts | Implemented, 105 tests including invariant tests |
-| Testnet deployment | Not yet deployed |
+| Testnet deployment | Live on `qorechain-diana`, exercised end to end with real ML-DSA-87 signatures |
 | Web app | Not started |
+
+### Testnet addresses
+
+QoreChain testnet (`qorechain-diana`, EVM chain id 9800).
+
+| What | Address |
+|---|---|
+| PerennialVault | `0x0fca4695C48291Db8A875726ba6FD17C93942502` |
+| MockYieldSource (5% a year, simulated) | `0xBcC4ABe0B3aBfABa14eA1eFDBE5c87035f167f17` |
+| Asset (fUSD) | `0x97143B771D34ddb9130b807b135Ae675A5a963CA` |
+| Deployer | `0x825c2e0282c4681fad2f99F514d3D3003cd27432` (`qor1sfwzuq5zc35pltf0n863f57nqq7dyapj6gqlyg`) |
+
+`pnpm e2e <vault>` in `contracts/` opens a position on the live vault, checks
+in, claims and closes with real ML-DSA-87 signatures, and confirms that a
+forged, a mismatched and a replayed signature are each refused.
 
 **What is simulated.** The only yield source in the repository is
 `MockYieldSource`, which pays a fixed rate out of a pre-funded reserve. No
