@@ -4,8 +4,8 @@
  *
  * The unit tests run against a stand-in for the chain's PQC precompiles. This
  * script is the check that the real ones accept what the vault sends them: it
- * opens a small position, proves life, claims and closes, and confirms that a
- * forged or replayed signature is refused.
+ * opens a small position, proves life, claims, spends from the buffer and closes,
+ * and confirms that a forged, mismatched or replayed signature is refused.
  *
  * It needs the account in .env (QORE_MNEMONIC) to have a registered ML-DSA-87
  * key, a live EVM window with about ten transactions left, and some of the
@@ -13,19 +13,20 @@
  *
  * Usage:  pnpm e2e <vault address>
  */
-import { createPublicClient, createWalletClient, defineChain, http, parseAbi, toHex } from "viem";
+import { createPublicClient, createWalletClient, defineChain, encodeAbiParameters, http, keccak256, parseAbi, parseAbiParameters, toHex } from "viem";
 import { mnemonicToAccount } from "viem/accounts";
 import { mldsa } from "@qorechain/pqc";
 import { deriveUnifiedAccount, getNetwork } from "@qorechain/sdk";
 
-const PRINCIPAL = 300_000_000n; // 300 units of a 6-decimal asset
+const PRINCIPAL = 20_000_000n; // 20 units of a 6-decimal asset
 const PAYOUT_INTERVAL = 45n; // seconds
-const SIGNED_TX_GAS = 900_000n;
+const SIGNED_TX_GAS = 400_000n; // the lane bills half the limit, so keep it close to the real cost
+const MAX_UINT256 = 2n ** 256n - 1n;
 
 const vaultAbi = parseAbi([
   "struct Heir { address account; uint16 bps; }",
-  "struct OpenParams { uint256 amount; address beneficiary; uint256 payoutAmount; uint64 payoutInterval; uint64 checkInPeriod; uint64 gracePeriod; bool ownerCanClose; Heir[] heirs; }",
-  "struct Position { address owner; address beneficiary; bool ownerCanClose; bool succeeded; bool closed; uint64 payoutInterval; uint64 checkInPeriod; uint64 gracePeriod; uint64 lastCheckIn; uint64 lastPayout; uint256 payoutAmount; uint256 principal; uint256 shares; uint256 buffer; uint256 nonce; }",
+  "struct OpenParams { uint256 amount; address beneficiary; uint256 payoutAmount; uint64 payoutInterval; uint64 checkInPeriod; uint64 gracePeriod; bool ownerCanClose; Heir[] heirs; uint256 bufferCap; }",
+  "struct Position { address owner; address beneficiary; bool ownerCanClose; bool succeeded; bool closed; uint64 payoutInterval; uint64 checkInPeriod; uint64 gracePeriod; uint64 lastCheckIn; uint64 lastPayout; uint256 payoutAmount; uint256 principal; uint256 shares; uint256 buffer; uint256 nonce; uint256 bufferCap; }",
   "function ASSET() view returns (address)",
   "function positionCount() view returns (uint256)",
   "function position(uint256 positionId) view returns (Position)",
@@ -35,6 +36,9 @@ const vaultAbi = parseAbi([
   "function checkIn(uint256 positionId, uint256 deadline, bytes signature)",
   "function claim(uint256 positionId, uint256 deadline, bytes signature) returns (uint256)",
   "function closeByOwner(uint256 positionId, uint256 deadline, bytes signature)",
+  "function spend(uint256 positionId, address to, uint256 amount, bytes32 ref, uint256 deadline, bytes signature)",
+  "event Spent(uint256 indexed positionId, address indexed to, uint256 amount, bytes32 indexed ref)",
+  "error InsufficientBuffer(uint256 positionId, uint256 available)",
   "error PQCUnavailable(address precompile)",
   "error PQCKeyNotRegistered(address account)",
   "error PQCKeyUnsupported(address account)",
@@ -49,7 +53,7 @@ const erc20Abi = parseAbi([
   "function approve(address, uint256) returns (bool)",
 ]);
 
-const Action = { CheckIn: 0, Claim: 1, SetHeirs: 2, Close: 3 } as const;
+const Action = { CheckIn: 0, Claim: 1, SetHeirs: 2, Close: 3, Spend: 4 } as const;
 const NO_PARAMS = `0x${"00".repeat(32)}` as const;
 
 function fromHex(hex: string): Uint8Array {
@@ -94,13 +98,13 @@ async function main(): Promise<void> {
   };
   const position = (id: bigint) => reader.readContract({ address: vault, abi: vaultAbi, functionName: "position", args: [id] });
   /** Signs an action at the position's current nonce with the account's ML-DSA-87 key. */
-  const sign = async (id: bigint, action: number, deadline: bigint): Promise<`0x${string}`> => {
+  const sign = async (id: bigint, action: number, deadline: bigint, params: `0x${string}` = NO_PARAMS): Promise<`0x${string}`> => {
     const { nonce } = await position(id);
     const message = await reader.readContract({
       address: vault,
       abi: vaultAbi,
       functionName: "actionMessage",
-      args: [id, action, nonce, deadline, NO_PARAMS],
+      args: [id, action, nonce, deadline, params],
     });
     return toHex(mldsa.sign(pqc.secretKey, fromHex(message)));
   };
@@ -130,6 +134,7 @@ async function main(): Promise<void> {
         gracePeriod: 86_400n,
         ownerCanClose: true,
         heirs: [],
+        bufferCap: MAX_UINT256,
       },
     ],
     account,
@@ -182,7 +187,29 @@ async function main(): Promise<void> {
   console.log(`  principal ${afterClaim.principal}, buffer ${afterClaim.buffer}`);
   if (afterClaim.principal !== PRINCIPAL) throw new Error("the claim touched the principal");
 
-  console.log("4. close and take the principal back");
+  console.log("4. spend from the buffer");
+  const buffer = (await position(id)).buffer;
+  const spendAmount = buffer > 1n ? buffer / 2n : 1n;
+  const ref = keccak256(toHex("perennial e2e spend"));
+  const spendParams = keccak256(encodeAbiParameters(parseAbiParameters("address, uint256, bytes32"), [me, spendAmount, ref]));
+  until = await deadline();
+  const spendSignature = await sign(id, Action.Spend, until, spendParams);
+  await expectRefused("spend to a different recipient", () =>
+    reader.simulateContract({ address: vault, abi: vaultAbi, functionName: "spend", args: [id, vault, spendAmount, ref, until, spendSignature], account }),
+  );
+  await send("spend", {
+    address: vault,
+    abi: vaultAbi,
+    functionName: "spend",
+    args: [id, me, spendAmount, ref, until, spendSignature],
+    account,
+    chain,
+    gas: SIGNED_TX_GAS,
+  });
+  const afterSpend = await position(id);
+  if (afterSpend.principal !== PRINCIPAL) throw new Error("the spend touched the principal");
+
+  console.log("5. close and take the principal back");
   until = await deadline();
   await send("closeByOwner", {
     address: vault,
