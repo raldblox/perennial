@@ -8,6 +8,19 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Vault version 2: `spend(positionId, to, amount, ref, deadline, signature)`,
+  a beneficiary-signed payment from the buffer with `Spent` indexed by
+  `ref`, and a per-position buffer cap above which yield is compounded into
+  the principal (decisions 004 and 005). Deployed to the testnet with a 5%
+  source and an accelerated demo source; deployment record and compiler
+  settings in `docs/deployments.md`.
+- `ERC4626Source`, a guarded adapter for real ERC-4626 vaults, and decision
+  006 on where real yield could come from.
+- `pnpm swap`: QOR to fUSD in the native AMM, converted for contracts.
+- Web app: fund an agent's inference, a control panel per position, an
+  in-page swap, and version 1 kept readable.
+- `docs/AUDIT.md`, ready for the AI contract review.
+
 - `PerennialVault`: open and top up a position, permissionless harvest,
   scheduled claims, proof-of-life check-in, heir updates, succession with a
   grace period, distribution to heirs, and an optional close by the owner.
@@ -32,8 +45,8 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- The README leads with the product as an on-chain endowment rather than a
-  pension.
+- The README and the app lead with an agent paying for its inference from a
+  deposit's yield, then what, why and how.
 - The vault calls the chain's fixed PQC precompile addresses instead of
   taking them as constructor arguments, and refuses to deploy where they are
   inactive.
