@@ -104,6 +104,9 @@ contract PerennialVault is ReentrancyGuard {
     event ToppedUp(uint256 indexed positionId, address indexed from, uint256 amount);
     event HeirsSet(uint256 indexed positionId, Heir[] heirs);
     event Harvested(uint256 indexed positionId, address indexed caller, uint256 yield);
+    event CheckedIn(
+        uint256 indexed positionId, address indexed beneficiary, uint256 successionDeadline
+    );
     event Claimed(
         uint256 indexed positionId, address indexed beneficiary, uint256 amount, uint256 periods
     );
@@ -222,6 +225,7 @@ contract PerennialVault is ReentrancyGuard {
         Position storage pos = _live(positionId);
         if (pos.succeeded) revert PositionSucceeded(positionId);
         _authorize(positionId, pos, pos.beneficiary, Action.Claim, deadline, 0, signature);
+        _recordProofOfLife(positionId, pos);
 
         _harvest(positionId, pos);
         uint256 periods;
@@ -232,8 +236,52 @@ contract PerennialVault is ReentrancyGuard {
     }
 
     // ------------------------------------------------------------------
+    // Proof of life
+    // ------------------------------------------------------------------
+
+    /// @notice The beneficiary shows they are still there, restarting the check-in period.
+    /// @dev Authorised by the beneficiary's ML-DSA-87 signature. A claim or a change of
+    ///      heirs carries the same signature and counts as a check-in too. A late check-in
+    ///      is accepted for as long as nobody has triggered succession.
+    function checkIn(uint256 positionId, uint256 deadline, bytes calldata signature)
+        external
+        nonReentrant
+    {
+        Position storage pos = _live(positionId);
+        if (pos.succeeded) revert PositionSucceeded(positionId);
+        _authorize(positionId, pos, pos.beneficiary, Action.CheckIn, deadline, 0, signature);
+        _recordProofOfLife(positionId, pos);
+    }
+
+    /// @notice Replace the heirs. Weights are basis points and must total 10,000; an empty
+    ///         list removes all heirs.
+    /// @dev Authorised by the beneficiary's ML-DSA-87 signature over the hash of the new list.
+    function setHeirs(
+        uint256 positionId,
+        Heir[] calldata newHeirs,
+        uint256 deadline,
+        bytes calldata signature
+    ) external nonReentrant {
+        Position storage pos = _live(positionId);
+        if (pos.succeeded) revert PositionSucceeded(positionId);
+        bytes32 paramsHash = keccak256(abi.encode(newHeirs));
+        _authorize(
+            positionId, pos, pos.beneficiary, Action.SetHeirs, deadline, paramsHash, signature
+        );
+        _recordProofOfLife(positionId, pos);
+        _storeHeirs(positionId, newHeirs);
+    }
+
+    // ------------------------------------------------------------------
     // Views
     // ------------------------------------------------------------------
+
+    /// @notice The moment after which succession can be triggered, unless the beneficiary
+    ///         checks in first.
+    function successionDeadline(uint256 positionId) public view returns (uint256) {
+        Position storage pos = _existing(positionId);
+        return uint256(pos.lastCheckIn) + pos.checkInPeriod + pos.gracePeriod;
+    }
 
     /// @notice The exact bytes an account signs with ML-DSA-87 to authorise an action.
     /// @param nonce The position's current nonce, from `position(positionId).nonce`.
@@ -308,6 +356,11 @@ contract PerennialVault is ReentrancyGuard {
         if (block.timestamp > deadline) revert SignatureExpired(deadline);
         bytes memory message = actionMessage(positionId, action, pos.nonce++, deadline, paramsHash);
         PQCAuth.requireSignature(PQC_VERIFY, PQC_KEY_STATUS, signer, message, signature);
+    }
+
+    function _recordProofOfLife(uint256 positionId, Position storage pos) private {
+        pos.lastCheckIn = uint64(block.timestamp);
+        emit CheckedIn(positionId, pos.beneficiary, successionDeadline(positionId));
     }
 
     /// @dev Takes what the schedule owes out of the buffer and advances the schedule by the
