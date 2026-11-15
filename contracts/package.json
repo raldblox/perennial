@@ -11,6 +11,8 @@
     "fmt": "forge fmt",
     "fmt:check": "forge fmt --check",
     "window": "tsx --env-file=.env scripts/window.ts",
+    "deploy:dry-run": "forge script script/Deploy.s.sol --rpc-url qorechain_testnet",
+    "deploy:testnet": "forge script script/Deploy.s.sol --rpc-url qorechain_testnet --broadcast",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
