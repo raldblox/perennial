@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {PerennialVault} from "../src/PerennialVault.sol";
 import {MockYieldSource} from "../src/mocks/MockYieldSource.sol";
 import {MockERC20} from "./mocks/MockERC20.sol";
-import {MockPQC} from "./mocks/MockPQC.sol";
+import {MockPQC, MockPQCVerifier} from "./mocks/MockPQC.sol";
 
 /// @dev Shared setup: a 6-decimal dollar, a 5% yield source with a deep reserve, the PQC
 ///      mock, and an owner and a beneficiary who both hold proven keys.
@@ -22,11 +22,11 @@ abstract contract VaultFixture is Test {
     bytes32 internal constant OWNER_SECRET = keccak256("owner secret");
     bytes32 internal constant BENEFICIARY_SECRET = keccak256("beneficiary secret");
 
-    MockERC20 internal token;
-    MockYieldSource internal source;
     address internal constant PQC_VERIFY = 0x0000000000000000000000000000000000000a01;
     address internal constant PQC_KEY_STATUS = 0x0000000000000000000000000000000000000a02;
 
+    MockERC20 internal token;
+    MockYieldSource internal source;
     MockPQC internal pqc;
     PerennialVault internal vault;
 
@@ -39,9 +39,9 @@ abstract contract VaultFixture is Test {
     function setUp() public virtual {
         token = new MockERC20();
         source = new MockYieldSource(token, RATE);
-        // The vault calls the chain's precompile addresses. Install the mock at both.
-        vm.etch(PQC_VERIFY, type(MockPQC).runtimeCode);
+        // The vault calls the chain's precompile addresses, so the mocks are installed there.
         vm.etch(PQC_KEY_STATUS, type(MockPQC).runtimeCode);
+        vm.etch(PQC_VERIFY, type(MockPQCVerifier).runtimeCode);
         pqc = MockPQC(PQC_KEY_STATUS);
         vault = new PerennialVault(token, source);
 
