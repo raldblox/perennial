@@ -34,7 +34,7 @@ function WindowStatus({ address, chainId }: { address: `0x${string}`; chainId: n
   const rest = REST_PROXY[chainId];
   const { data, error, isLoading } = useQuery({
     queryKey: ["evm-window", chainId, address],
-    queryFn: () => evmWindowStatus({ rest: rest!, address }),
+    queryFn: () => evmWindowStatus({ rest: rest ?? "", address }),
     enabled: rest !== undefined,
     refetchInterval: 10_000,
   });

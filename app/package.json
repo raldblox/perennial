@@ -3,16 +3,25 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "A Vite + React + wagmi dApp for the QoreChain EVM, with RainbowKit and the QoreX wallet.",
+  "description": "Perennial's web app: open and operate positions on the QoreChain testnet vault.",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
+    "@fontsource-variable/source-serif-4": "^5.3.1",
+    "@fontsource/ibm-plex-mono": "^5.3.0",
+    "@fontsource/ibm-plex-sans": "^5.3.0",
     "@qorechain/evm": "^0.14.0",
+    "@qorechain/pqc": "^0.2.3",
     "@qorechain/qorex-rainbowkit": "^0.1.0",
+    "@qorechain/qorex-types": "^0.1.0",
+    "@qorechain/sdk": "^0.14.0",
     "@rainbow-me/rainbowkit": "^2.2.11",
     "@tanstack/react-query": "^5.59.0",
     "react": "^18.3.1",
@@ -21,10 +30,26 @@
     "wagmi": "^2.19.5"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.10",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.0",
+    "eslint": "^9.39.5",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "globals": "^15.15.0",
+    "jsdom": "^25.0.1",
     "typescript": "^5.6.3",
-    "vite": "^5.4.0"
+    "typescript-eslint": "^8.72.2",
+    "vite": "^5.4.0",
+    "vitest": "^2.1.9"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
   }
 }
