@@ -51,8 +51,13 @@ export const config = {
 
 export const PQC_KEY_STATUS: Address = "0x0000000000000000000000000000000000000a02";
 
-export function txUrl(hash: string): string {
-  return `${config.explorerUrl}/tx/${hash}`;
+/**
+ * The explorer finds native transactions by their hash in upper-case hex
+ * without a prefix. It has no page for EVM transaction hashes, and it opens on
+ * mainnet until its Testnet switch is used (checked 15 November 2026).
+ */
+export function nativeTxUrl(hash: string): string {
+  return `${config.explorerUrl}/tx/${hash.replace(/^0x/i, "").toUpperCase()}`;
 }
 
 export function addressUrl(account: string): string {

@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { addressUrl, txUrl } from "../config";
+import { addressUrl, nativeTxUrl } from "../config";
 import { common } from "../copy";
 import { formatDecimal } from "../lib/decimal";
 
@@ -95,16 +95,31 @@ export function AddressText({ address, you }: { address: string; you?: boolean }
       <span>{address}</span>
       {you ? <span className="badge">{common.you}</span> : null}
       <CopyButton text={address} label={address} />
-      <a className="small" href={addressUrl(address)} target="_blank" rel="noreferrer">
+      <a className="small" href={addressUrl(address)} target="_blank" rel="noreferrer" title={common.explorerNote}>
         {common.explorer}
       </a>
     </span>
   );
 }
 
-export function TxLink({ hash }: { hash: string }) {
+/**
+ * An EVM transaction hash. QoreChain's explorer looks up native transactions
+ * only, so an EVM hash is shown in full with a copy button instead of a link
+ * that would not resolve.
+ */
+export function TxHash({ hash, short }: { hash: string; short?: boolean }) {
   return (
-    <a className="mono small wrap-anywhere" href={txUrl(hash)} target="_blank" rel="noreferrer">
+    <span className="address" title={common.evmHashNote}>
+      <span className="mono small wrap-anywhere">{short ? shortAddress(hash) : hash}</span>
+      <CopyButton text={hash} label={hash} />
+    </span>
+  );
+}
+
+/** A native-lane transaction, which the explorer can show once switched to Testnet. */
+export function NativeTxLink({ hash }: { hash: string }) {
+  return (
+    <a className="mono small wrap-anywhere" href={nativeTxUrl(hash)} target="_blank" rel="noreferrer" title={common.explorerNote}>
       {shortAddress(hash)}
       <span className="visually-hidden"> ({common.explorer})</span>
     </a>

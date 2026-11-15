@@ -10,7 +10,7 @@ import { config } from "../config";
 import { account as copy, common, requirements } from "../copy";
 import { useBalances, useClient, useKeyStatus, useVaultInfo, useWindow } from "../state/queries";
 import { useSession } from "../state/session";
-import { AddressText, Amount, Notice, Spinner, Status } from "./ui";
+import { AddressText, Amount, NativeTxLink, Notice, Spinner, Status } from "./ui";
 
 export type Blocker = "no-key" | "key-mismatch" | "no-window" | "window-unreachable" | "no-gas";
 
@@ -64,6 +64,7 @@ export function AccountPanel() {
   const readiness = useReadiness();
   const [opening, setOpening] = useState(false);
   const [windowError, setWindowError] = useState<ExplainedError | null>(null);
+  const [windowTx, setWindowTx] = useState<string | null>(null);
 
   if (!account || !signer) return null;
   const decimals = info.data?.decimals ?? 6;
@@ -74,7 +75,7 @@ export function AccountPanel() {
     try {
       const fees = await client.estimateFeesPerGas();
       const maxFee = fees.maxFeePerGas;
-      await signer.openWindow([config.vault, info.data?.asset ?? config.asset], maxFee * 2n);
+      setWindowTx(await signer.openWindow([config.vault, info.data?.asset ?? config.asset], maxFee * 2n));
       await queryClient.invalidateQueries({ queryKey: ["evm-window"] });
     } catch (error) {
       setWindowError(explainError(error));
@@ -179,6 +180,11 @@ export function AccountPanel() {
         </Notice>
       ) : null}
       {opening ? <Spinner label={copy.openingWindow} /> : null}
+      {windowTx ? (
+        <Notice tone="ok" title={copy.windowOpened}>
+          <NativeTxLink hash={windowTx} />
+        </Notice>
+      ) : null}
       {windowError ? (
         <Notice tone="danger" title={windowError.message}>
           {windowError.detail ? <span className="mono wrap-anywhere">{windowError.detail}</span> : null}

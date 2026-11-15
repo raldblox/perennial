@@ -116,3 +116,11 @@ describe("write helpers", () => {
     expect(withHeadroom(200_000n)).toBe(250_000n);
   });
 });
+
+describe("explorer links", () => {
+  it("formats native transaction hashes the way the explorer finds them", async () => {
+    const { nativeTxUrl } = await import("../config");
+    expect(nativeTxUrl("0xabc123")).toBe("https://explore.qore.network/tx/ABC123");
+    expect(nativeTxUrl("34233E08")).toBe("https://explore.qore.network/tx/34233E08");
+  });
+});

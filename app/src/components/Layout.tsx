@@ -75,6 +75,9 @@ export function Layout({ route, children }: { route: Route; children: ReactNode 
       <footer className="site-footer">
         <div className="page">
           <p>{footer.line}</p>
+          <p className="faint" style={{ marginTop: "var(--space-2)" }}>
+            {footer.explorer}
+          </p>
           <dl>
             <dt>{footer.vault}</dt>
             <dd className="mono">{config.vault}</dd>

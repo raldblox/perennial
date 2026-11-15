@@ -8,7 +8,7 @@ import type { Hash } from "viem";
 import { explainError, type ExplainedError } from "../chain/errors";
 import { TransactionFailed, type Step } from "../chain/write";
 import { tx as copy } from "../copy";
-import { Notice, Spinner, TxLink } from "./ui";
+import { Notice, Spinner, TxHash } from "./ui";
 
 export type TxState =
   | { status: "idle" }
@@ -59,7 +59,7 @@ export function TxStatus({ state, onDismiss }: { state: TxState; onDismiss?: () 
     return (
       <div className="row" aria-live="polite">
         <Spinner label={STEP_LABEL[state.step]} />
-        {state.hash ? <TxLink hash={state.hash} /> : null}
+        {state.hash ? <TxHash hash={state.hash} short /> : null}
       </div>
     );
   }
@@ -68,7 +68,7 @@ export function TxStatus({ state, onDismiss }: { state: TxState; onDismiss?: () 
       <div aria-live="polite">
         <Notice tone="ok" title={`${copy.success}. ${state.message}`}>
           <span className="row">
-            {copy.hash} <TxLink hash={state.hash} />
+            {copy.hash} <TxHash hash={state.hash} />
             {onDismiss ? (
               <button type="button" className="link-button" onClick={onDismiss}>
                 {copy.dismiss}
@@ -86,7 +86,7 @@ export function TxStatus({ state, onDismiss }: { state: TxState; onDismiss?: () 
         <span className="row">
           {state.hash ? (
             <>
-              {copy.hash} <TxLink hash={state.hash} />
+              {copy.hash} <TxHash hash={state.hash} />
             </>
           ) : null}
           {onDismiss ? (

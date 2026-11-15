@@ -179,6 +179,7 @@ export const faq = {
 
 export const footer = {
   line: "Open source under the MIT licence. Testnet only. Unaudited.",
+  explorer: "The QoreChain explorer opens on mainnet: use its Testnet switch. It does not look up EVM transaction hashes yet, so this page shows them in full.",
   vault: "Vault",
   asset: "Asset",
   source: "Yield source",
@@ -194,7 +195,9 @@ export const common = {
   close: "Close",
   copy: "Copy",
   copied: "Copied",
-  explorer: "View on explorer",
+  explorer: "Explorer",
+  explorerNote: "The QoreChain explorer opens on mainnet. Use its Testnet switch to see this.",
+  evmHashNote: "The QoreChain explorer does not look up EVM transaction hashes yet. Any EVM RPC can, with eth_getTransactionReceipt.",
   none: "None",
   yes: "Yes",
   no: "No",
@@ -225,6 +228,7 @@ export const account = {
   windowAny: "any contract",
   openWindow: "Open a window for Perennial",
   openingWindow: "Opening the window",
+  windowOpened: "Window opened, limited to the vault and fUSD.",
   closeWindow: "Close the window",
   autoLock: "Locks after 15 minutes without activity.",
   refresh: "Refresh",

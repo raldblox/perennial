@@ -18,7 +18,7 @@ import { HeirsEditor } from "../components/HeirsEditor";
 import { useWritesAllowed } from "../components/Layout";
 import { SignDialog } from "../components/SignDialog";
 import { TxStatus, useTx } from "../components/tx";
-import { AddressText, Amount, Figure, Notice, Spinner, Status, TxLink } from "../components/ui";
+import { AddressText, Amount, Figure, Notice, Spinner, Status, TxHash } from "../components/ui";
 import { actions as actionCopy, common, intervals as intervalCopy, phases, position as copy } from "../copy";
 import { parseDecimal } from "../lib/decimal";
 import { bpsToPercent, validateHeirs, type HeirDraft } from "../lib/heirs";
@@ -243,7 +243,7 @@ export function PositionPage({ id }: { id: bigint }) {
                           </td>
                           <td className="num faint">#{e.block.toString()}</td>
                           <td className="num">
-                            <TxLink hash={e.tx} />
+                            <TxHash hash={e.tx} short />
                           </td>
                         </tr>
                       ))}
