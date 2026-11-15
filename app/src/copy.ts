@@ -31,7 +31,7 @@ export const vaultNames: Record<VaultId, { name: string; rate: string; note: str
     note: "Pays a fixed 5% a year from a pre-funded test reserve. Nothing earns it.",
   },
   demo: {
-    name: "Demo vault: accelerated testnet rate",
+    name: "Demo vault",
     rate: "accelerated testnet rate, simulated, not a return",
     note: "Pays 15,768% a year, so 20 fUSD pays about 2.6 calls a minute during a demonstration. It is a test setting, never a return.",
   },

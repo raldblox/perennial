@@ -128,7 +128,9 @@ export function PositionPage({ vaultId, id }: { vaultId: VaultId; id: bigint }) 
           <div>
             <dt>{copy.earning}</dt>
             <dd>
-              {earnPerHour !== null && spending ? (
+              {s.closed ? (
+                actionCopy.unavailable.closed
+              ) : earnPerHour !== null && spending ? (
                 <>
                   {copy.earningValue(`${formatAmount(earnPerHour, DECIMALS, 6)} ${symbol}`, `${formatAmount(spending.perHour, DECIMALS, 6)} ${symbol}`)}
                   <br />
