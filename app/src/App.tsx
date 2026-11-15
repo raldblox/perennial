@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Layout } from "./components/Layout";
 import { notFound } from "./copy";
 import { Landing } from "./pages/Landing";
+import { Open } from "./pages/Open";
 import { href, useRoute } from "./router";
 
 const TITLES = {
@@ -26,7 +27,8 @@ export function App() {
   return (
     <Layout route={route}>
       {route.name === "overview" ? <Landing /> : null}
-      {route.name !== "overview" ? (
+      {route.name === "open" ? <Open /> : null}
+      {route.name !== "overview" && route.name !== "open" ? (
         <div className="page section stack">
           <h1 style={{ fontSize: "var(--size-h2)" }}>{notFound.title}</h1>
           <p className="muted">{notFound.body}</p>
