@@ -92,6 +92,7 @@ contract PerennialVault is ReentrancyGuard {
     );
     event ToppedUp(uint256 indexed positionId, address indexed from, uint256 amount);
     event HeirsSet(uint256 indexed positionId, Heir[] heirs);
+    event Harvested(uint256 indexed positionId, address indexed caller, uint256 yield);
 
     error ZeroAddress();
     error ZeroAmount();
@@ -178,8 +179,26 @@ contract PerennialVault is ReentrancyGuard {
     }
 
     // ------------------------------------------------------------------
+    // Yield
+    // ------------------------------------------------------------------
+
+    /// @notice Move the yield a position has earned into its buffer. Anyone may call:
+    ///         the yield can only land in the position's own buffer.
+    function harvest(uint256 positionId) external nonReentrant returns (uint256 yield) {
+        return _harvest(positionId, _live(positionId));
+    }
+
+    // ------------------------------------------------------------------
     // Views
     // ------------------------------------------------------------------
+
+    /// @notice Yield a harvest would move into the buffer right now.
+    function pendingYield(uint256 positionId) external view returns (uint256) {
+        Position storage pos = _existing(positionId);
+        if (pos.closed) return 0;
+        uint256 keep = SOURCE.previewWithdraw(pos.principal);
+        return pos.shares > keep ? SOURCE.convertToAssets(pos.shares - keep) : 0;
+    }
 
     function position(uint256 positionId) external view returns (Position memory) {
         return _existing(positionId);
@@ -202,6 +221,23 @@ contract PerennialVault is ReentrancyGuard {
     function _live(uint256 positionId) private view returns (Position storage pos) {
         pos = _existing(positionId);
         if (pos.closed) revert PositionClosed(positionId);
+    }
+
+    /// @dev Keeps exactly the shares needed to withdraw the principal and redeems the rest.
+    ///      `previewWithdraw` rounds up, so rounding always favours the principal.
+    function _harvest(uint256 positionId, Position storage pos) private returns (uint256 yield) {
+        uint256 keep = SOURCE.previewWithdraw(pos.principal);
+        if (pos.shares <= keep) return 0;
+
+        uint256 surplus = pos.shares - keep;
+        pos.shares = keep;
+
+        uint256 balanceBefore = ASSET.balanceOf(address(this));
+        SOURCE.redeem(surplus, address(this), address(this));
+        yield = ASSET.balanceOf(address(this)) - balanceBefore;
+
+        pos.buffer += yield;
+        emit Harvested(positionId, msg.sender, yield);
     }
 
     /// @dev Pulls `amount` from the caller and deposits it. Tokens that deliver less than
