@@ -135,7 +135,27 @@ contract itself, such as an ERC-4626 vault or an AMM pool
   per UTC day). It reviews source only and is not a formal audit. Source:
   <https://docs.qorechain.io/dashboard/contract-auditor>
 
-## Open questions
+## Wallets and browsers
 
-- Whether the QoreX wallet exposes ML-DSA-87 signing of arbitrary messages to
-  web pages. This decides how the web app produces action signatures.
+Read and measured on 15 November 2026.
+
+- QoreX does not sign arbitrary bytes for a page: `signArbitrary` is refused,
+  and on the EVM lane it answers account and chain queries only
+  (`@qorechain/qorex-types` 0.1.0,
+  <https://docs.qorechain.io/qorex/dapp-browser>). Message signing with
+  ML-DSA-87 and EVM signing are announced as planned, without a date
+  (<https://github.com/qorechain/qorex-integrations>).
+- The ML-DSA-87 key of a phrase's EVM account is
+  `deriveUnifiedAccount(phrase).pqc`; the key of its Native account
+  (`m/44'/118'/0'/0/0`, what QoreX shows) is
+  `derivePqcCanonical(nativeAddress, phrase)`. Both matched the keys
+  `pqcKeyStatus` returned for the deployer's phrase.
+- The EVM JSON-RPC sends `access-control-allow-origin: *`. The REST API and
+  the CometBFT RPC send no CORS headers, so a page on another origin cannot read
+  or open an EVM window, or broadcast a native transaction, without a proxy.
+  `pqcKeyStatus` is readable from a page through `eth_call`.
+- Testnet blocks arrive about every 1.4 seconds; the EVM gas price was
+  112.5 gwei.
+
+How the web app deals with this is
+[decision 003](decisions/003-browser-signing.md).
