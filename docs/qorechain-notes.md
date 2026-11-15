@@ -49,8 +49,17 @@ Source: <https://docs.qorechain.io/developer-guide/post-quantum-signing>
 - Measured: `pqcKeyStatus` for an account without a key returns
   `(false, 0, 0x, false)`. `pqcVerify` with empty inputs returns `false`
   rather than reverting, so a bad signature is reported as a value.
-- Foundry's local EVM does not have these precompiles. Unit tests use a mock
-  behind the same interface; real verification is exercised on the testnet.
+- Foundry's local EVM does not have these precompiles. Unit tests install a
+  mock at the precompile addresses; real verification is exercised on the
+  testnet by `contracts/scripts/e2e.ts`.
+- Confirmed on 15 November 2026: `pqcVerify` accepts a signature made with
+  `mldsa.sign` from `@qorechain/pqc` (deterministic, no context string) over
+  the raw message bytes, against the key `pqcKeyStatus` returns.
+- `forge script` runs twice: once on a local fork and once as an on-chain
+  simulation, both on Foundry's own EVM. A constructor that calls a
+  precompile fails in both. The deploy script therefore asks the node with
+  `eth_call` whether the precompile is active, installs stand-ins for the
+  local run, and is run with `--skip-simulation` so the node estimates gas.
 
 Source: <https://docs.qorechain.io/developer-guide/evm-precompiles>
 
@@ -76,11 +85,37 @@ contract for its sensitive actions instead of trusting `msg.sender`
 
 Source: <https://docs.qorechain.io/developer-guide/evm-window-reference>
 
+## Accounts
+
+One mnemonic gives two different accounts:
+
+- the **Native account** (`cosmos.crypto.secp256k1`, what the QoreX wallet
+  shows), and
+- the **EVM account** (`m/44'/60'/0'/0/0`, an Ethereum-style key), which is
+  the one Foundry, viem and MetaMask sign for.
+
+They have different addresses and separate balances, and each registers its
+own ML-DSA-87 key. Every `0x` address also has a `qor1` form of the same 20
+bytes (`evmToQor` in `@qorechain/sdk`), which is how a contract address is
+written on the Native side.
+
+## Fees
+
+The EVM lane charges at least half of a transaction's gas limit, whatever it
+uses: a signed vault action sent with a 900,000 limit is billed 450,000. Set
+gas limits close to the real cost.
+
 ## Tokens and yield
 
 - fUSD, the testnet dollar token, is an ERC-20 at
   `0x97143B771D34ddb9130b807b135Ae675A5a963CA` with **6 decimals**
   (`name()` returns "Fest USD"). It comes from the testnet faucet.
+- The faucet pays fUSD as a **bank coin** (`erc20:0x9714…`), which contracts
+  cannot see. `/cosmos.evm.erc20.v1.MsgConvertCoin`
+  (`coin`, `receiver` as `0x…`, `sender` as `qor1…`) turns it into an ERC-20
+  balance; it can be sent from the Native account straight to an EVM
+  address. A plain bank transfer does not convert anything. The SDK has no
+  builder for the message at 0.14.0.
 - Staking and delegation are Native-lane only; the EVM staking precompile is
   not active. A Solidity contract cannot stake directly.
 - The CrossVM bridge precompile (`0x…0901`) is active only for an allowlist
@@ -102,7 +137,5 @@ contract itself, such as an ERC-4626 vault or an AMM pool
 
 ## Open questions
 
-- Which EVM hard fork the chain executes. The starter template compiles with
-  solc 0.8.28 defaults; confirm with the first deployment.
 - Whether the QoreX wallet exposes ML-DSA-87 signing of arbitrary messages to
   web pages. This decides how the web app produces action signatures.
