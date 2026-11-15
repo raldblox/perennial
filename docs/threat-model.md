@@ -2,14 +2,15 @@
 
 What Perennial protects, from whom, what it trusts, and where it is weak.
 Written for the contracts in `contracts/src` and the web app in `app/`, as
-deployed on the QoreChain testnet. Last reviewed 15 November 2026.
+deployed on the QoreChain testnet (version 2, with `spend` and the buffer
+cap; see [deployments](deployments.md)). Last reviewed 16 November 2026.
 
 ## Assets
 
 | Asset | Where it lives | What losing it means |
 |---|---|---|
 | Principal | yield-source shares held by the vault for each position | the capital behind the income |
-| Buffer | asset tokens held by the vault, per position | harvested income not yet paid |
+| Buffer | asset tokens held by the vault, per position, at most the position's cap after every harvest, claim, distribution or spend | harvested income not yet paid; what a stolen beneficiary key can spend |
 | Schedule and proof of life | `payoutAmount`, `payoutInterval`, `lastPayout`, `lastCheckIn` | a forged check-in delays succession; a forged claim spends the buffer early |
 | Heirs | the position's heir list and weights | whoever is on it inherits the income |
 | The right to close | `ownerCanClose` and the owner's ML-DSA-87 key | releases the principal to the owner |
@@ -19,12 +20,15 @@ deployed on the QoreChain testnet. Last reviewed 15 November 2026.
 
 - **Owner**: deposits the principal. Holds no authority afterwards unless the
   right to close was kept.
-- **Beneficiary**: claims payouts, checks in, changes heirs, all with an
-  ML-DSA-87 signature.
+- **Beneficiary**: typically an AI agent's own account. Spends from the
+  buffer to any recipient, claims payouts, checks in and changes heirs, all
+  with an ML-DSA-87 signature. It never holds the principal.
 - **Heirs**: receive the payouts after succession. Need no key and sign
   nothing.
-- **Relayer**: anyone who submits a signed action. Pays the fee, gains
-  nothing.
+- **Relayer**: anyone who submits a signed action, such as a payment
+  facilitator submitting an agent's spends. Pays the fee, gains nothing.
+- **Payee**: the recipient a spend names, such as an inference service. It
+  finds its payment by the `Spent` event's `ref`.
 - **Anyone**: may harvest, trigger succession after the deadline, distribute
   after succession, and top up principal.
 - **Attacker with a classical key**: has recovered an account's secp256k1 key,
@@ -56,7 +60,7 @@ the key the chain reports at that moment ([decision 001](decisions/001-pq-signed
 
 | With only the secp256k1 key of… | Can | Cannot |
 |---|---|---|
-| the beneficiary | nothing beyond what anyone can do | claim, check in, change heirs |
+| the beneficiary | nothing beyond what anyone can do | spend, claim, check in, change heirs |
 | the owner | nothing beyond what anyone can do | close the position |
 | anyone | harvest, trigger succession after the deadline, distribute, top up | redirect a payout: the vault pays the beneficiary or the frozen heirs only |
 
@@ -75,11 +79,22 @@ protection above assumes it refuses one.
 
 ## What a stolen ML-DSA-87 key can do
 
-Everything its role allows: the beneficiary's key can claim (to the
-beneficiary, not to the attacker), check in to postpone succession
-indefinitely, and replace the heirs with the attacker's account; the owner's
-key can close the position, sending the principal to the owner and the buffer
-to the beneficiary. The vault cannot tell a stolen key from its holder.
+Everything its role allows. The vault cannot tell a stolen key from its
+holder.
+
+- **The beneficiary's (agent's) key** can spend the buffer to any address,
+  which is the worst case: at most what the buffer holds at that moment, and
+  after every harvest the buffer is cut back to its cap
+  ([decision 004](decisions/004-buffer-cap.md)). It can also claim (to the
+  beneficiary), check in to postpone succession, and replace the heirs with
+  its own account. It can never touch the principal
+  ([decision 005](decisions/005-spend.md)).
+- **The owner's key** can close the position if the right was kept, sending
+  the principal to the owner and the buffer to the beneficiary.
+
+So an owner who funds an agent should keep the right to close: closing is
+the only way to stop a compromised agent key, because only the beneficiary's
+key can change the heirs.
 
 ## Signatures, relayers and replay
 
@@ -93,6 +108,11 @@ to the beneficiary. The vault cannot tell a stolen key from its holder.
   useless once the first is used.
 - `setHeirs` binds `keccak256(abi.encode(newHeirs))`, so a relayer cannot swap
   the list.
+- `spend` binds `keccak256(abi.encode(to, amount, ref))`, so a relayer
+  cannot change the recipient, the amount or the reference.
+- One nonce per position means an agent's spends are strictly sequential. A
+  relayer holding several signed spends can only submit them in order; one
+  withheld spend blocks the ones after it until its deadline passes.
 - A relayer can delay a signed action until its deadline or never submit it.
   The app signs with a ten-minute deadline and submits itself.
 - A relayer can front-run with the same signature; the effect is the same,
@@ -112,6 +132,15 @@ to the beneficiary. The vault cannot tell a stolen key from its holder.
 - A malicious or upgradeable source could take the principal. The source is
   fixed at deployment; a vault is only as safe as the source it was deployed
   with.
+- The demo vault's source pays an accelerated testnet rate (15,768% a year)
+  so a small deposit pays several calls a minute. Its reserve drains at that
+  speed. It is a test setting and is labelled as one.
+- `ERC4626Source` adds guards for real ERC-4626 vaults (zero-share deposits,
+  limits, per-depositor shares) but inherits that vault's risks
+  ([decision 006](decisions/006-yield-sources.md)). Nothing on QoreChain pays
+  a real return a contract can collect today.
+- Compounded yield becomes principal and can never be spent; on a position
+  without the right to close it is locked like any other principal.
 
 ## Front-end risks (from decision 003)
 
@@ -143,6 +172,10 @@ page, so the app derives the keys from a recovery phrase typed into the page
   endpoints, which refuse cross-origin requests; the host forwards them. A
   malicious proxy could misreport the window or refuse to open one. It cannot
   forge a window: the opening message is signed in the page.
+- **Swap.** The in-page swap takes its quote from the pool reserves the proxy
+  returns. A malicious proxy could report reserves that lower the minimum,
+  exposing the swap to a worse price. The page caps a swap at 1 QOR and
+  shows the minimum before signing.
 
 ## Known limitations
 
@@ -161,3 +194,5 @@ page, so the app derives the keys from a recovery phrase typed into the page
   accepts a valid signature from anywhere.
 - QoreChain's explorer does not look up EVM transaction hashes; the app shows
   them in full instead of linking.
+- An agent's spends share the position's nonce, so they are sequential; a
+  payer that needs concurrent spends needs one position per stream.
