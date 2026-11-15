@@ -106,6 +106,12 @@ contract PerennialVault is ReentrancyGuard {
     event Harvested(uint256 indexed positionId, address indexed caller, uint256 yield);
     event SuccessionTriggered(uint256 indexed positionId, address indexed caller);
     event Distributed(uint256 indexed positionId, uint256 amount, uint256 periods);
+    event Closed(
+        uint256 indexed positionId,
+        address indexed owner,
+        uint256 principalReturned,
+        uint256 yieldPaid
+    );
     event CheckedIn(
         uint256 indexed positionId, address indexed beneficiary, uint256 successionDeadline
     );
@@ -130,6 +136,7 @@ contract PerennialVault is ReentrancyGuard {
     error PositionNotSucceeded(uint256 positionId);
     error SuccessionNotDue(uint256 positionId, uint256 notBefore);
     error NoHeirs(uint256 positionId);
+    error CloseNotAllowed(uint256 positionId);
 
     constructor(IERC20 asset, IYieldSource source, address pqcVerify, address pqcKeyStatus) {
         if (
@@ -307,6 +314,47 @@ contract PerennialVault is ReentrancyGuard {
         paid = _payHeirs(positionId, pos, amount);
 
         emit Distributed(positionId, paid, periods);
+    }
+
+    // ------------------------------------------------------------------
+    // Closing
+    // ------------------------------------------------------------------
+
+    /// @notice Wind the position up: the principal returns to the owner, and the yield
+    ///         earned so far goes to the beneficiary, or to the heirs after succession.
+    /// @dev Only possible when the owner kept this right at opening, and authorised by the
+    ///      owner's ML-DSA-87 signature. Positions opened without the right are permanent.
+    function closeByOwner(uint256 positionId, uint256 deadline, bytes calldata signature)
+        external
+        nonReentrant
+    {
+        Position storage pos = _live(positionId);
+        if (!pos.ownerCanClose) revert CloseNotAllowed(positionId);
+        _authorize(positionId, pos, pos.owner, Action.Close, deadline, 0, signature);
+
+        _harvest(positionId, pos);
+
+        uint256 shares = pos.shares;
+        uint256 earned = pos.buffer;
+        pos.closed = true;
+        pos.shares = 0;
+        pos.principal = 0;
+        pos.buffer = 0;
+
+        uint256 returned = SOURCE.redeem(shares, pos.owner, address(this));
+
+        if (earned != 0) {
+            if (pos.succeeded) {
+                _payHeirs(positionId, pos, earned);
+                uint256 dust = pos.buffer;
+                pos.buffer = 0;
+                if (dust != 0) ASSET.safeTransfer(pos.owner, dust);
+            } else {
+                ASSET.safeTransfer(pos.beneficiary, earned);
+            }
+        }
+
+        emit Closed(positionId, pos.owner, returned, earned);
     }
 
     // ------------------------------------------------------------------
