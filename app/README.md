@@ -1,9 +1,10 @@
 # Perennial web app
 
-A static React app for the Perennial vault on the QoreChain testnet: the
-overview and sizing calculator, opening a position, and a page per position
-with its deadlines, history and every vault action. Everything reads without
-an account.
+A static React app for the Perennial vaults on the QoreChain testnet: an
+overview that sizes a deposit from an agent's calls an hour, a form to fund
+an agent's inference, and a control panel per position (health, a ledger with
+every transaction and reference, and the controls). Everything reads without
+an account. It points at the version 2 vaults and keeps version 1 readable.
 
 ```sh
 pnpm install

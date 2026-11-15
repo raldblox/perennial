@@ -12,6 +12,11 @@ interface ImportMetaEnv {
   readonly VITE_VAULT_ADDRESS?: string;
   readonly VITE_ASSET_ADDRESS?: string;
   readonly VITE_VAULT_DEPLOY_BLOCK?: string;
+  readonly VITE_DEMO_VAULT_ADDRESS?: string;
+  readonly VITE_DEMO_VAULT_DEPLOY_BLOCK?: string;
+  readonly VITE_V1_VAULT_ADDRESS?: string;
+  readonly VITE_V1_VAULT_DEPLOY_BLOCK?: string;
+  readonly VITE_SWAP_POOL_ID?: string;
   readonly VITE_SOURCE_URL?: string;
 }
 
