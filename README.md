@@ -1,5 +1,7 @@
 # Perennial
 
+![Perennial](docs/assets/cover.png)
+
 A post-quantum pension protocol for humans and AI agents on QoreChain.
 
 Deposit once. The principal stays invested and is never paid out; only what
