@@ -26,7 +26,7 @@ contract PerennialVault is ReentrancyGuard {
     uint256 public constant MAX_HEIRS = 16;
     /// @notice Domain tag of every signed action, so a signature made for this protocol
     ///         means nothing anywhere else.
-    bytes32 public constant ACTION_DOMAIN = keccak256("Perennial.Action.v1");
+    bytes32 public constant ACTION_DOMAIN = keccak256("Perennial.Action");
 
     /// @notice The actions that need an ML-DSA-87 signature.
     enum Action {

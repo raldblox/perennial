@@ -39,7 +39,7 @@ no window open.
 
 | Field | Purpose |
 |---|---|
-| `bytes32 domain` = `keccak256("Perennial.Action.v1")` | separates Perennial from other uses of the key |
+| `bytes32 domain` = `keccak256("Perennial.Action")` | separates Perennial from other uses of the key |
 | `uint256 chainId` | no replay on another chain |
 | `address vault` | no replay on another deployment |
 | `uint256 positionId` | no replay on another position |
