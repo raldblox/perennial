@@ -36,26 +36,23 @@ export interface VaultConfig {
   source: SourceKind;
 }
 
-/** Until the vaults are deployed, an address that holds no code: reads fail and say so. */
-const NOT_DEPLOYED: Address = "0x0000000000000000000000000000000000000000";
-
 const vaults: readonly VaultConfig[] = [
   {
     id: "agent",
-    address: address("VITE_VAULT_ADDRESS", NOT_DEPLOYED),
-    deployBlock: BigInt(env("VITE_VAULT_DEPLOY_BLOCK") ?? "0"),
+    address: address("VITE_VAULT_ADDRESS", "0x5BB20552043Df7bC9df11d80BE4Ff024a67c2b16"),
+    deployBlock: BigInt(env("VITE_VAULT_DEPLOY_BLOCK") ?? "10202942"),
     source: "simulated",
   },
   {
     id: "noyield",
-    address: address("VITE_NOYIELD_VAULT_ADDRESS", NOT_DEPLOYED),
-    deployBlock: BigInt(env("VITE_NOYIELD_VAULT_DEPLOY_BLOCK") ?? "0"),
+    address: address("VITE_NOYIELD_VAULT_ADDRESS", "0x76DAC5461fF361f911e5F39810c9455a6180C180"),
+    deployBlock: BigInt(env("VITE_NOYIELD_VAULT_DEPLOY_BLOCK") ?? "10202926"),
     source: "none",
   },
   {
     id: "demo",
-    address: address("VITE_DEMO_VAULT_ADDRESS", NOT_DEPLOYED),
-    deployBlock: BigInt(env("VITE_DEMO_VAULT_DEPLOY_BLOCK") ?? "0"),
+    address: address("VITE_DEMO_VAULT_ADDRESS", "0x496AAa4D585B97c8a26095D97Af4bBfAd473798c"),
+    deployBlock: BigInt(env("VITE_DEMO_VAULT_DEPLOY_BLOCK") ?? "10203015"),
     source: "accelerated",
   },
 ];
