@@ -97,7 +97,7 @@ allowance passing to the children (250 a month, 69,000). Each at 5% with a
 | Part | State |
 |---|---|
 | Contracts | One `PerennialVault` with `spend`, the buffer cap, opt-in budget mode and `fund`; 179 tests including fuzz and invariant tests, and optional fork tests against real sources; adapters for ERC-4626 vaults and Aave V3 markets |
-| Testnet | The final contract is not deployed yet (see below); earlier test deployments are retired |
+| Testnet | Deployed on `qorechain-diana` as three vaults: no yield, a simulated 5% and an accelerated demo rate; earlier test deployments are retired |
 | Web app | Fund an agent, budget mode, income paid in, a control panel per position with how long it lasts, an in-page QOR to fUSD swap |
 | Review | Not audited. The first AI review is answered finding by finding in [docs/AUDIT.md](docs/AUDIT.md) |
 
@@ -124,9 +124,9 @@ are in [docs/deployments.md](docs/deployments.md).
 
 | What | Address |
 |---|---|
-| PerennialVault, no yield | not deployed yet |
-| PerennialVault, 5% a year (simulated) | not deployed yet |
-| PerennialVault, accelerated testnet rate (simulated, not a return) | not deployed yet |
+| PerennialVault, no yield (its source pays nothing) | `0x76DAC5461fF361f911e5F39810c9455a6180C180` |
+| PerennialVault, 5% a year (simulated) | `0x5BB20552043Df7bC9df11d80BE4Ff024a67c2b16` |
+| PerennialVault, accelerated testnet rate (simulated, not a return) | `0x496AAa4D585B97c8a26095D97Af4bBfAd473798c` |
 | Asset (fUSD) | `0x97143B771D34ddb9130b807b135Ae675A5a963CA` |
 | Deployer | `0x825c2e0282c4681fad2f99F514d3D3003cd27432` (`qor1sfwzuq5zc35pltf0n863f57nqq7dyapj6gqlyg`) |
 | Adversarial test account | `0x38FbFDdAE9E53fFb221c0b7E8dF993dC8C75917c` (`qor18ralmkhfu5llkgsupdlgm7vnmjx8tytunvzdqe`) |

@@ -34,8 +34,9 @@ To be run by hand; it needs a signed-in dashboard account.
 1. Open <https://dashboard.qorechain.io/audit> and choose **Ethereum
    (EVM/Solidity)**.
 2. Paste **`contracts/src/PerennialVault.sol`**, the whole file, as it is at
-   the commit of the testnet deployment recorded in
-   [deployments.md](deployments.md). Paste only that file, as in stage 1.
+   the commit of the testnet deployment, `e1460cb` (recorded in
+   [deployments.md](deployments.md); `git show e1460cb:contracts/src/PerennialVault.sol`
+   prints it). Paste only that file, as in stage 1.
 3. Save the PDF as `docs/audits/ai-review-<date>-stage2.pdf` and add a
    section like the one above, with one row per finding.
 4. Optional second run on another day: `contracts/src/adapters/ERC4626Source.sol`
