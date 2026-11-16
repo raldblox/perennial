@@ -96,34 +96,46 @@ allowance passing to the children (250 a month, 69,000). Each at 5% with a
 
 | Part | State |
 |---|---|
-| Contracts | Version 2 with `spend` and the buffer cap; 140 tests including fuzz and invariant tests; an ERC-4626 source adapter |
-| Testnet | Version 2 deployed on `qorechain-diana`; spends made live with real ML-DSA-87 signatures |
-| Web app | Fund an agent, a control panel per position, an in-page QOR to fUSD swap; 128 tests |
-| Review | Not audited. The AI review record is ready in [docs/AUDIT.md](docs/AUDIT.md) |
+| Contracts | One `PerennialVault` with `spend`, the buffer cap, opt-in budget mode and `fund`; 179 tests including fuzz and invariant tests, and optional fork tests against real sources; adapters for ERC-4626 vaults and Aave V3 markets |
+| Testnet | The final contract is not deployed yet (see below); earlier test deployments are retired |
+| Web app | Fund an agent, budget mode, income paid in, a control panel per position with how long it lasts, an in-page QOR to fUSD swap |
+| Review | Not audited. The first AI review is answered finding by finding in [docs/AUDIT.md](docs/AUDIT.md) |
+
+### Money in, money out
+
+- **Principal**: `open` deposits it, and `topUp` adds to it. Anyone may top up
+  any open position, any number of times; a test makes twelve top-ups from
+  twelve different payers and checks the principal is their sum. One asset
+  per vault.
+- **Income**: `fund(positionId, amount)` pays straight into the buffer.
+  Anyone may, for example a customer paying an agent; the event `Funded`
+  names the payer. Above the buffer cap it joins the principal, like yield.
+- **Budget mode**, chosen at opening and fixed: spends and claims may draw on
+  the principal once the buffer is empty, never more than `payoutAmount` per
+  `payoutInterval` in total, and never more than the position holds
+  ([decision 007](docs/decisions/007-budget-mode-and-income.md)). Off, the
+  principal is never spent.
 
 ### Testnet addresses
 
 QoreChain testnet (`qorechain-diana`, EVM chain id 9800). Transactions,
-constructor arguments and compiler settings are in
-[docs/deployments.md](docs/deployments.md).
+constructor arguments, compiler settings and the retired test deployments
+are in [docs/deployments.md](docs/deployments.md).
 
 | What | Address |
 |---|---|
-| PerennialVault, version 2 (5% source) | `0xf8e6a785c718b4b41A4EfDa288c72A3A85c0D1f4` |
-| MockYieldSource, 5% a year (simulated) | `0x3928b2a863eE86B6AEFc7afe3e3e3d117De17e9a` |
-| PerennialVault, version 2 (demo, accelerated testnet rate) | `0xbE25A982f41182aA68000110933337fDd5931289` |
-| MockYieldSource, accelerated testnet rate (simulated, not a return) | `0xf66B6cC12CE9f20E9400AB1580976d227b5E1BB8` |
-| PerennialVault, version 1 (no spend, read-only from the app) | `0x2fB3057c42fB97964F5a86fD20ecD90969d06593` (`qor197es2lzzlwtevn66sm7jpmxep95aqevnrhsh9w`) |
-| MockYieldSource for version 1, 5% a year (simulated) | `0xBcC4ABe0B3aBfABa14eA1eFDBE5c87035f167f17` (`qor1hnz2hc9n40at5982rm7muhy8qd03vlchx773pc`) |
+| PerennialVault, no yield | not deployed yet |
+| PerennialVault, 5% a year (simulated) | not deployed yet |
+| PerennialVault, accelerated testnet rate (simulated, not a return) | not deployed yet |
 | Asset (fUSD) | `0x97143B771D34ddb9130b807b135Ae675A5a963CA` |
 | Deployer | `0x825c2e0282c4681fad2f99F514d3D3003cd27432` (`qor1sfwzuq5zc35pltf0n863f57nqq7dyapj6gqlyg`) |
 | Adversarial test account | `0x38FbFDdAE9E53fFb221c0b7E8dF993dC8C75917c` (`qor18ralmkhfu5llkgsupdlgm7vnmjx8tytunvzdqe`) |
 
 The adversarial test account exists to be attacked: treat its secp256k1
-private key as compromised. Its savings sit in position 2 of the version 1
-vault. With the classical key alone nobody can claim, check in, change its
-heirs or close the position, and it keeps no EVM window open, so that key
-cannot move its QOR either.
+private key as compromised. Its savings sit in position 2 of a retired test
+vault, `0x2fB3057c42fB97964F5a86fD20ecD90969d06593`. With the classical key
+alone nobody can claim, check in, change its heirs or close the position,
+and it keeps no EVM window open, so that key cannot move its QOR either.
 
 `pnpm e2e <vault>` in `contracts/` opens a position on a live vault, checks
 in, claims, spends from the buffer and closes with real ML-DSA-87 signatures,
@@ -136,9 +148,12 @@ spend to a different recipient, are each refused.
   a fixed rate out of a reserve someone funded. Nothing earns it. Nothing on
   QoreChain pays a real return a Solidity contract can collect today: AMM
   fees, staking and staking tiers are native-lane only
-  ([decision 006](docs/decisions/006-yield-sources.md)). When a real
-  ERC-4626 vault exists, a new vault can use it, directly or through
-  `ERC4626Source`.
+  ([decision 006](docs/decisions/006-yield-sources.md)). The no-yield vault
+  shows the vault as it would run on QoreChain today. On other EVM chains a
+  new vault can use a real ERC-4626 vault directly or through
+  `ERC4626Source`, or an Aave V3 market through `AaveV3Source`
+  ([decision 008](docs/decisions/008-yield-sources-on-other-chains.md));
+  none of these is deployed on this testnet.
 - **The demo rate.** The demo vault's source pays 15,768% a year so that
   20 fUSD visibly pays about 2.6 calls a minute in a demonstration. It is a
   test setting, never a return, and is labelled wherever it appears.
