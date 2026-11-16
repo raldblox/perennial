@@ -25,8 +25,8 @@ const MAX_UINT256 = 2n ** 256n - 1n;
 
 const vaultAbi = parseAbi([
   "struct Heir { address account; uint16 bps; }",
-  "struct OpenParams { uint256 amount; address beneficiary; uint256 payoutAmount; uint64 payoutInterval; uint64 checkInPeriod; uint64 gracePeriod; bool ownerCanClose; Heir[] heirs; uint256 bufferCap; }",
-  "struct Position { address owner; address beneficiary; bool ownerCanClose; bool succeeded; bool closed; uint64 payoutInterval; uint64 checkInPeriod; uint64 gracePeriod; uint64 lastCheckIn; uint64 lastPayout; uint256 payoutAmount; uint256 principal; uint256 shares; uint256 buffer; uint256 nonce; uint256 bufferCap; }",
+  "struct OpenParams { uint256 amount; address beneficiary; uint256 payoutAmount; uint64 payoutInterval; uint64 checkInPeriod; uint64 gracePeriod; bool ownerCanClose; Heir[] heirs; uint256 bufferCap; bool budgetMode; }",
+  "struct Position { address owner; address beneficiary; bool ownerCanClose; bool succeeded; bool closed; uint64 payoutInterval; uint64 checkInPeriod; uint64 gracePeriod; uint64 lastCheckIn; uint64 lastPayout; uint256 payoutAmount; uint256 principal; uint256 shares; uint256 buffer; uint256 nonce; uint256 bufferCap; bool budgetMode; uint64 windowStart; uint256 windowSpent; }",
   "function ASSET() view returns (address)",
   "function positionCount() view returns (uint256)",
   "function position(uint256 positionId) view returns (Position)",
@@ -135,6 +135,7 @@ async function main(): Promise<void> {
         ownerCanClose: true,
         heirs: [],
         bufferCap: MAX_UINT256,
+        budgetMode: false,
       },
     ],
     account,
