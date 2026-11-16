@@ -73,7 +73,8 @@ abstract contract VaultFixture is Test {
             gracePeriod: GRACE_PERIOD,
             ownerCanClose: false,
             heirs: _heirs(),
-            bufferCap: type(uint256).max
+            bufferCap: type(uint256).max,
+            budgetMode: false
         });
     }
 

@@ -8,11 +8,14 @@ import {IYieldSource} from "./interfaces/IYieldSource.sol";
 import {PQCAuth} from "./libraries/PQCAuth.sol";
 
 /// @title PerennialVault
-/// @notice An endowment that pays out only what its principal earns: on a schedule, or
-///         call by call when its beneficiary spends from the buffer.
+/// @notice A budget held under rules: the beneficiary spends call by call or is paid on a
+///         schedule, the owner keeps a way out, heirs take over when the beneficiary goes
+///         silent, and every instruction carries a post-quantum signature.
 /// @dev A position's principal is deposited into the yield source and tracked as shares.
-///      Yield is harvested into the position's buffer, and payouts and spends are made from
-///      the buffer only. Whatever the buffer holds above its cap is added to the principal.
+///      Yield, and income anyone pays in with `fund`, collect in the position's buffer.
+///      Payouts and spends come from the buffer; a position opened in budget mode may also
+///      draw on its principal, never more than `payoutAmount` per `payoutInterval` in total.
+///      Whatever the buffer holds above its cap is added to the principal.
 ///      The vault has one asset and one yield source, both fixed at deployment, and no
 ///      privileged role: nothing can be paused, upgraded or swept.
 contract PerennialVault is ReentrancyGuard {
@@ -67,10 +70,18 @@ contract PerennialVault is ReentrancyGuard {
         uint256 buffer;
         /// @dev Incremented by every signed action, so a signature works once.
         uint256 nonce;
-        /// @dev Most the buffer keeps after a harvest, claim, distribution or spend; the rest
-        ///      is added to the principal. Fixed at opening. Zero compounds everything not
+        /// @dev Most the buffer keeps after a harvest, claim, distribution, spend or fund; the
+        ///      rest is added to the principal. Fixed at opening. Zero compounds everything not
         ///      paid out; type(uint256).max never compounds.
         uint256 bufferCap;
+        /// @dev Fixed at opening. When set, spends and payouts may draw on the principal once
+        ///      the buffer is empty, and all of them together are limited to `payoutAmount`
+        ///      per `payoutInterval`.
+        bool budgetMode;
+        /// @dev Start of the current budget window (budget mode only).
+        uint64 windowStart;
+        /// @dev Paid out in the current budget window (budget mode only).
+        uint256 windowSpent;
     }
 
     struct OpenParams {
@@ -83,6 +94,7 @@ contract PerennialVault is ReentrancyGuard {
         bool ownerCanClose;
         Heir[] heirs;
         uint256 bufferCap;
+        bool budgetMode;
     }
 
     IERC20 public immutable ASSET;
@@ -134,6 +146,10 @@ contract PerennialVault is ReentrancyGuard {
     );
     /// @notice Buffer above the cap was added to the principal.
     event Compounded(uint256 indexed positionId, uint256 amount);
+    /// @notice Someone paid income straight into the position's buffer.
+    event Funded(uint256 indexed positionId, address indexed from, uint256 amount);
+    /// @notice A budget-mode payout or spend took `amount` from the principal.
+    event PrincipalDrawn(uint256 indexed positionId, uint256 amount);
 
     error ZeroAddress();
     error ZeroAmount();
@@ -154,6 +170,8 @@ contract PerennialVault is ReentrancyGuard {
     error NoHeirs(uint256 positionId);
     error CloseNotAllowed(uint256 positionId);
     error InsufficientBuffer(uint256 positionId, uint256 available);
+    error BudgetNeedsPayoutAmount();
+    error BudgetExceeded(uint256 positionId, uint256 remaining);
 
     constructor(IERC20 asset, IYieldSource source) {
         if (address(asset) == address(0) || address(source) == address(0)) revert ZeroAddress();
@@ -178,6 +196,7 @@ contract PerennialVault is ReentrancyGuard {
         if (p.amount == 0) revert ZeroAmount();
         if (p.beneficiary == address(0)) revert ZeroAddress();
         if (p.payoutInterval == 0 || p.checkInPeriod == 0) revert ZeroPeriod();
+        if (p.budgetMode && p.payoutAmount == 0) revert BudgetNeedsPayoutAmount();
 
         PQCAuth.provenKey(PQC_KEY_STATUS, p.beneficiary);
         if (p.ownerCanClose) PQCAuth.provenKey(PQC_KEY_STATUS, msg.sender);
@@ -194,6 +213,8 @@ contract PerennialVault is ReentrancyGuard {
         pos.lastCheckIn = uint64(block.timestamp);
         pos.lastPayout = uint64(block.timestamp);
         pos.bufferCap = p.bufferCap;
+        pos.budgetMode = p.budgetMode;
+        pos.windowStart = uint64(block.timestamp);
 
         _storeHeirs(positionId, p.heirs);
 
@@ -225,6 +246,21 @@ contract PerennialVault is ReentrancyGuard {
         emit ToppedUp(positionId, msg.sender, amount);
     }
 
+    /// @notice Pay income into a position's buffer. Anyone may: a user paying an agent, a
+    ///         grant, a revenue share. The buffer cap applies, so whatever lands above it is
+    ///         added to the principal.
+    function fund(uint256 positionId, uint256 amount) external nonReentrant {
+        Position storage pos = _live(positionId);
+        if (amount == 0) revert ZeroAmount();
+
+        uint256 balanceBefore = ASSET.balanceOf(address(this));
+        ASSET.safeTransferFrom(msg.sender, address(this), amount);
+        if (ASSET.balanceOf(address(this)) - balanceBefore != amount) revert UnsupportedToken();
+        pos.buffer += amount;
+        emit Funded(positionId, msg.sender, amount);
+        _compound(positionId, pos);
+    }
+
     // ------------------------------------------------------------------
     // Yield
     // ------------------------------------------------------------------
@@ -242,11 +278,13 @@ contract PerennialVault is ReentrancyGuard {
     // Payouts
     // ------------------------------------------------------------------
 
-    /// @notice Pay the beneficiary what the schedule owes, from the buffer only.
+    /// @notice Pay the beneficiary what the schedule owes.
     /// @dev Authorised by the beneficiary's ML-DSA-87 signature, not by the sender, so anyone
     ///      may submit it and the money still goes to the beneficiary. Pending yield is
-    ///      harvested first. A period the buffer cannot fund in full is paid in part and is
-    ///      not carried over: payouts never exceed what the principal has earned.
+    ///      harvested first. Without budget mode it pays from the buffer only, and a period
+    ///      the buffer cannot fund in full is paid in part and not carried over. In budget mode
+    ///      it pays what is left of the current window's budget, from the buffer and then the
+    ///      principal.
     function claim(uint256 positionId, uint256 deadline, bytes calldata signature)
         external
         nonReentrant
@@ -259,7 +297,7 @@ contract PerennialVault is ReentrancyGuard {
 
         _harvest(positionId, pos);
         uint256 periods;
-        (paid, periods) = _settle(positionId, pos);
+        (paid, periods) = pos.budgetMode ? _settleBudget(positionId, pos) : _settle(positionId, pos);
 
         _compound(positionId, pos);
 
@@ -271,9 +309,11 @@ contract PerennialVault is ReentrancyGuard {
     ///         a beneficiary such as an agent pays for what it uses, call by call.
     /// @dev Authorised by the beneficiary's ML-DSA-87 signature over `(to, amount, ref)`, so
     ///      anyone may relay it and nobody can change where the money goes. Pending yield is
-    ///      harvested first, the buffer must cover `amount`, and the principal is never
-    ///      touched. Counts as a check-in. Not possible after succession: the heirs are then
-    ///      paid on the schedule through `distribute`.
+    ///      harvested first. Without budget mode the buffer must cover `amount` and the
+    ///      principal is never touched. In budget mode `amount` counts against the window's
+    ///      budget and may come from the principal once the buffer is empty. Counts as a
+    ///      check-in. Not possible after succession: the heirs are then paid through
+    ///      `distribute`.
     function spend(
         uint256 positionId,
         address to,
@@ -291,8 +331,13 @@ contract PerennialVault is ReentrancyGuard {
         _recordProofOfLife(positionId, pos);
 
         _harvest(positionId, pos);
-        if (amount > pos.buffer) revert InsufficientBuffer(positionId, pos.buffer);
-        pos.buffer -= amount;
+        if (pos.budgetMode) {
+            _useBudget(positionId, pos, amount);
+            _take(positionId, pos, amount);
+        } else {
+            if (amount > pos.buffer) revert InsufficientBuffer(positionId, pos.buffer);
+            pos.buffer -= amount;
+        }
         _compound(positionId, pos);
 
         ASSET.safeTransfer(to, amount);
@@ -362,7 +407,8 @@ contract PerennialVault is ReentrancyGuard {
         if (!pos.succeeded) revert PositionNotSucceeded(positionId);
 
         _harvest(positionId, pos);
-        (uint256 amount, uint256 periods) = _settle(positionId, pos);
+        (uint256 amount, uint256 periods) =
+            pos.budgetMode ? _settleBudget(positionId, pos) : _settle(positionId, pos);
         paid = _payHeirs(positionId, pos, amount);
         _compound(positionId, pos);
 
@@ -457,6 +503,17 @@ contract PerennialVault is ReentrancyGuard {
         return pos.shares > keep ? SOURCE.convertToAssets(pos.shares - keep) : 0;
     }
 
+    /// @notice What a budget-mode position may still pay out in the current window, before
+    ///         counting what the buffer and principal hold. Zero for other positions.
+    function budgetRemaining(uint256 positionId) external view returns (uint256) {
+        Position storage pos = _existing(positionId);
+        if (!pos.budgetMode || pos.closed) return 0;
+        if (block.timestamp >= uint256(pos.windowStart) + pos.payoutInterval) {
+            return pos.payoutAmount;
+        }
+        return pos.payoutAmount - pos.windowSpent;
+    }
+
     function position(uint256 positionId) external view returns (Position memory) {
         return _existing(positionId);
     }
@@ -534,6 +591,73 @@ contract PerennialVault is ReentrancyGuard {
 
         pos.buffer -= amount;
         pos.lastPayout += uint64(periods * pos.payoutInterval);
+    }
+
+    /// @dev Moves the budget window forward by whole intervals once the current one is over.
+    function _rollWindow(Position storage pos) private {
+        uint256 start = pos.windowStart;
+        if (block.timestamp < start + pos.payoutInterval) return;
+        uint256 intervals = (block.timestamp - start) / pos.payoutInterval;
+        pos.windowStart = uint64(start + intervals * pos.payoutInterval);
+        pos.windowSpent = 0;
+    }
+
+    /// @dev Counts `amount` against the window's budget, refusing what would exceed it.
+    function _useBudget(uint256 positionId, Position storage pos, uint256 amount) private {
+        _rollWindow(pos);
+        uint256 remaining = pos.payoutAmount - pos.windowSpent;
+        if (amount > remaining) revert BudgetExceeded(positionId, remaining);
+        pos.windowSpent += amount;
+    }
+
+    /// @dev Budget mode's payout: whatever is left of the window's budget, as far as the
+    ///      buffer and the principal can cover it. Unused budget does not carry over.
+    function _settleBudget(uint256 positionId, Position storage pos)
+        private
+        returns (uint256 amount, uint256 periods)
+    {
+        _rollWindow(pos);
+        uint256 remaining = pos.payoutAmount - pos.windowSpent;
+        if (remaining == 0) {
+            revert PayoutNotDue(positionId, uint256(pos.windowStart) + pos.payoutInterval);
+        }
+        uint256 available = pos.buffer + pos.principal;
+        amount = remaining < available ? remaining : available;
+        pos.windowSpent += amount;
+        pos.lastPayout = pos.windowStart;
+        periods = 1;
+        _take(positionId, pos, amount);
+    }
+
+    /// @dev Takes `amount` out of the position: the buffer first, then, in budget mode, the
+    ///      principal. The caller has already checked the budget.
+    function _take(uint256 positionId, Position storage pos, uint256 amount) private {
+        if (amount <= pos.buffer) {
+            pos.buffer -= amount;
+            return;
+        }
+        uint256 need = amount - pos.buffer;
+        uint256 bufferBefore = pos.buffer;
+        pos.buffer = 0;
+        if (need > pos.principal) {
+            revert InsufficientBuffer(positionId, bufferBefore + pos.principal);
+        }
+
+        uint256 shares = SOURCE.previewWithdraw(need);
+        bool all = shares >= pos.shares;
+        if (all) shares = pos.shares;
+
+        uint256 balanceBefore = ASSET.balanceOf(address(this));
+        SOURCE.redeem(shares, address(this), address(this));
+        uint256 received = ASSET.balanceOf(address(this)) - balanceBefore;
+        // Only a source that has lost value pays less than the principal it is booked at.
+        if (received < need) revert InsufficientBuffer(positionId, bufferBefore + received);
+
+        pos.shares -= shares;
+        pos.principal = all ? 0 : pos.principal - need;
+        // Rounding, or the rest of a fully redeemed principal, stays in the buffer.
+        pos.buffer = received - need;
+        emit PrincipalDrawn(positionId, need);
     }
 
     /// @dev Keeps exactly the shares needed to withdraw the principal and redeems the rest.

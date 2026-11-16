@@ -33,10 +33,17 @@ contract Handler is Test {
     uint256 public beneficiaryBalanceAtLastSuccession;
     bool public anySucceeded;
     uint256 public principalReturned;
+    /// Budget mode: what each position has paid out in its current window, and whether any
+    /// window ever paid more than its budget, or any call more than the position held.
+    mapping(uint256 => uint256) public windowOf;
+    mapping(uint256 => uint256) public paidInWindow;
+    bool public rateBreached;
+    bool public overdrawn;
     /// Principal last seen for each open position, and whether it ever went down.
     mapping(uint256 => uint256) public lastPrincipal;
     bool public principalShrank;
-    /// How many times each position's principal grew (a deposit or a compounding).
+    /// How many times each position's principal changed (a deposit, a compounding or, in
+    /// budget mode, a draw); each can leave the share cover one share short.
     mapping(uint256 => uint256) public growths;
     /// Paid out by `spend` to the merchant, and everything paid out of buffers.
     uint256 public spentToMerchant;
@@ -88,15 +95,48 @@ contract Handler is Test {
         for (uint256 id = 1; id <= count; ++id) {
             PerennialVault.Position memory pos = vault.position(id);
             if (pos.closed) continue;
-            if (pos.principal < lastPrincipal[id]) principalShrank = true;
-            if (pos.principal > lastPrincipal[id]) growths[id] += 1;
+            // Only budget mode may draw on the principal.
+            if (pos.principal < lastPrincipal[id] && !pos.budgetMode) principalShrank = true;
+            if (pos.principal != lastPrincipal[id]) growths[id] += 1;
             lastPrincipal[id] = pos.principal;
         }
+    }
+
+    /// @dev What a payout or spend may reach right now: buffer, pending yield and, in budget
+    ///      mode, the principal.
+    function _held(uint256 id) internal view returns (uint256) {
+        PerennialVault.Position memory pos = vault.position(id);
+        return pos.buffer + vault.pendingYield(id) + (pos.budgetMode ? pos.principal : 0);
+    }
+
+    function _recordOutflow(uint256 id, uint256 paid, uint256 heldBefore) internal {
+        if (paid > heldBefore) overdrawn = true;
+        PerennialVault.Position memory pos = vault.position(id);
+        if (!pos.budgetMode) return;
+        if (windowOf[id] != pos.windowStart) {
+            windowOf[id] = pos.windowStart;
+            paidInWindow[id] = 0;
+        }
+        paidInWindow[id] += paid;
+        if (paidInWindow[id] > pos.payoutAmount) rateBreached = true;
     }
 
     function open(uint256 amount, uint256 payout, bool closable, uint256 cap)
         external
         tracksPrincipal(0)
+    {
+        _open(amount, payout, closable, cap, false);
+    }
+
+    function openBudget(uint256 amount, uint256 payout, bool closable, uint256 cap)
+        external
+        tracksPrincipal(0)
+    {
+        _open(amount, payout, closable, cap, true);
+    }
+
+    function _open(uint256 amount, uint256 payout, bool closable, uint256 cap, bool budget)
+        internal
     {
         if (vault.positionCount() >= MAX_POSITIONS) return;
         amount = bound(amount, 1, 500_000 * USD);
@@ -111,14 +151,15 @@ contract Handler is Test {
             PerennialVault.OpenParams({
                 amount: amount,
                 beneficiary: beneficiary,
-                payoutAmount: bound(payout, 0, 5_000 * USD),
+                payoutAmount: bound(payout, budget ? 1 : 0, 5_000 * USD),
                 payoutInterval: 30 days,
                 checkInPeriod: 90 days,
                 gracePeriod: 30 days,
                 ownerCanClose: closable,
                 heirs: list,
                 // A third of positions never compound, the rest keep a cap from zero up.
-                bufferCap: cap % 3 == 0 ? type(uint256).max : bound(cap, 0, 2_000 * USD)
+                bufferCap: cap % 3 == 0 ? type(uint256).max : bound(cap, 0, 2_000 * USD),
+                budgetMode: budget
             })
         );
         vm.stopPrank();
@@ -154,7 +195,9 @@ contract Handler is Test {
         if (id == 0) return;
         uint256 deadline = block.timestamp + 1;
         bytes memory signature = _sign(beneficiarySecret, id, PerennialVault.Action.Claim, deadline);
-        vault.claim(id, deadline, signature);
+        uint256 held = _held(id);
+        uint256 paid = vault.claim(id, deadline, signature);
+        _recordOutflow(id, paid, held);
     }
 
     function checkIn(uint256 seed) external tracksPrincipal(seed) {
@@ -178,8 +221,10 @@ contract Handler is Test {
             deadline,
             keccak256(abi.encode(merchant, amount, ref))
         );
+        uint256 held = _held(id);
         vault.spend(id, merchant, amount, ref, deadline, signature);
         spentToMerchant += amount;
+        _recordOutflow(id, amount, held);
     }
 
     function triggerSuccession(uint256 seed) external tracksPrincipal(seed) {
@@ -193,7 +238,18 @@ contract Handler is Test {
     function distribute(uint256 seed) external tracksPrincipal(seed) {
         uint256 id = _pick(seed);
         if (id == 0) return;
-        vault.distribute(id);
+        uint256 held = _held(id);
+        uint256 paid = vault.distribute(id);
+        _recordOutflow(id, paid, held);
+    }
+
+    function fund(uint256 seed, uint256 amount) external tracksPrincipal(seed) {
+        uint256 id = _pick(seed);
+        if (id == 0) return;
+        amount = bound(amount, 1, 1_000 * USD);
+        token.mint(address(this), amount);
+        token.approve(address(vault), amount);
+        vault.fund(id, amount);
     }
 
     function close(uint256 seed) external tracksPrincipal(seed) {
@@ -232,9 +288,19 @@ contract InvariantsTest is VaultFixture {
         for (uint256 id = 1; id <= count; ++id) {
             PerennialVault.Position memory pos = vault.position(id);
             if (pos.closed) continue;
-            assertGe(pos.principal, handler.deposited(id));
+            // Budget mode may draw on the principal, within its rate limit (checked below).
+            if (!pos.budgetMode) assertGe(pos.principal, handler.deposited(id));
             assertGe(pos.shares + handler.growths(id), source.previewWithdraw(pos.principal));
         }
+    }
+
+    /// Nobody can take more than the rate limit allows: a budget-mode position never pays
+    /// out more than `payoutAmount` in one window, across spends, claims and distributions.
+    /// And no call ever pays more than the position held: buffer, pending yield and, in
+    /// budget mode, the principal.
+    function invariant_rateLimitAndHoldingsBoundEveryPayout() public view {
+        assertFalse(handler.rateBreached());
+        assertFalse(handler.overdrawn());
     }
 
     /// After any action the buffer holds at most its cap; the rest has been compounded.
