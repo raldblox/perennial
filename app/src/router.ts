@@ -4,7 +4,7 @@
  *   #/open?vault=demo          fund an agent (vault defaults to the 5% one)
  *   #/positions?vault=…&address=…
  *   #/position/:id             a position in the default vault
- *   #/position/:vault/:id      a position in another vault (demo, v1)
+ *   #/position/:vault/:id      a position in another vault (noyield, demo)
  */
 import { useSyncExternalStore } from "react";
 import { config, isVaultId, type VaultId } from "./config";

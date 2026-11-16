@@ -119,7 +119,7 @@ function VaultFigures({ vault }: { vault: VaultConfig }) {
 }
 
 export function Landing() {
-  const current = config.vaults.filter((v) => v.version === 2);
+  const current = config.vaults;
   return (
     <div className="page">
       <Hero />

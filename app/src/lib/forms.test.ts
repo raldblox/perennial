@@ -25,7 +25,13 @@ describe("validateTerms", () => {
       checkInPeriod: 7_776_000n,
       gracePeriod: 2_592_000n,
       ownerCanClose: false,
+      budgetMode: false,
     });
+  });
+
+  it("needs a claim amount for budget mode", () => {
+    expect(validateTerms({ ...draft, payout: "", budgetMode: true }, { decimals: 6 }).errors).toEqual({ budget: true });
+    expect(validateTerms({ ...draft, payout: "5", budgetMode: true }, { decimals: 6 }).terms?.budgetMode).toBe(true);
   });
 
   it("allows a zero payout and zero grace", () => {
@@ -84,9 +90,10 @@ describe("routes", () => {
     expect(parseRoute("#/open")).toEqual({ name: "open", vault: "agent" });
     expect(parseRoute("#/open?vault=demo&calls=2")).toEqual({ name: "open", vault: "demo" });
     expect(parseRoute("#/positions")).toEqual({ name: "positions", vault: "agent" });
-    expect(parseRoute("#/positions?vault=v1&address=0xabc")).toEqual({ name: "positions", vault: "v1", address: "0xabc" });
+    expect(parseRoute("#/positions?vault=noyield&address=0xabc")).toEqual({ name: "positions", vault: "noyield", address: "0xabc" });
     expect(parseRoute("#/position/12")).toEqual({ name: "position", vault: "agent", id: 12n });
-    expect(parseRoute("#/position/v1/2")).toEqual({ name: "position", vault: "v1", id: 2n });
+    expect(parseRoute("#/position/noyield/2")).toEqual({ name: "position", vault: "noyield", id: 2n });
+    expect(parseRoute("#/position/v1/2")).toEqual({ name: "not-found" });
     expect(parseRoute("#/position/0")).toEqual({ name: "not-found" });
     expect(parseRoute("#/position/nowhere/2")).toEqual({ name: "not-found" });
     expect(parseRoute("#/open?vault=nowhere")).toEqual({ name: "not-found" });

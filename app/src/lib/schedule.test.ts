@@ -32,6 +32,9 @@ function position(overrides: Partial<PositionState> = {}): PositionState {
     buffer: 0n,
     nonce: 0n,
     bufferCap: 2n ** 256n - 1n,
+    budgetMode: false,
+    windowStart: T0,
+    windowSpent: 0n,
     ...overrides,
   };
 }

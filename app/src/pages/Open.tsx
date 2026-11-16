@@ -57,6 +57,7 @@ export function Open({ vaultId }: { vaultId: VaultId }) {
     checkInDays: "30",
     graceDays: "7",
     ownerCanClose: false,
+    budgetMode: false,
   });
   const [heirs, setHeirs] = useState<HeirDraft[]>([]);
   const approveTx = useTx();
@@ -70,7 +71,9 @@ export function Open({ vaultId }: { vaultId: VaultId }) {
   const callsParsed = parseDecimal(calls, 2);
   const priceParsed = parseDecimal(price, DECIMALS);
   const usage = callsParsed.ok && priceParsed.ok && callsParsed.value > 0n && priceParsed.value > 0n ? { calls: callsParsed.value, price: priceParsed.value } : null;
-  const suggested = usage ? depositForCalls(usage.calls, usage.price, rateBps) : null;
+  // A source that pays nothing cannot size a deposit from its yield.
+  const earns = rateBps > 0n;
+  const suggested = usage && earns ? depositForCalls(usage.calls, usage.price, rateBps) : null;
   const dayCap = usage ? dayOfCalls(usage.calls, usage.price) : null;
 
   // Start the cap at a day of the chosen calls until the user sets it.
@@ -90,7 +93,7 @@ export function Open({ vaultId }: { vaultId: VaultId }) {
   const capParsed = cap.trim() === "never" ? ({ ok: true, value: maxUint256 } as const) : parseDecimal(cap, DECIMALS);
   const capError = !capParsed.ok;
   const heirResult = validateHeirs(heirs);
-  const paysCalls = terms && usage ? callsPerHourFor(terms.amount, usage.price, rateBps) : null;
+  const paysCalls = terms && usage && earns ? callsPerHourFor(terms.amount, usage.price, rateBps) : null;
 
   const set = (patch: Partial<TermsDraft>) => setDraft((d) => ({ ...d, ...patch }));
   const allowance = balances.data?.allowance ?? 0n;
@@ -139,7 +142,7 @@ export function Open({ vaultId }: { vaultId: VaultId }) {
   };
 
   const fieldError = (name: keyof typeof copy.errors) => (touched && (name === "cap" ? capError : errors[name]) ? copy.errors[name] : null);
-  const writable = config.vaults.filter((v) => v.writable);
+  const vaultNote = vault.source === "accelerated" ? vaultNames.demo.note : vault.source === "none" ? vaultNames.noyield.note : copy.vaultHint;
 
   return (
     <div className="page">
@@ -171,7 +174,7 @@ export function Open({ vaultId }: { vaultId: VaultId }) {
               <form className="stack-lg" onSubmit={submitTerms} noValidate>
                 <fieldset className="field" style={{ border: 0, padding: 0, margin: 0 }}>
                   <legend>{copy.vault}</legend>
-                  {writable.map((v) => (
+                  {config.vaults.map((v) => (
                     <label key={v.id} className="check">
                       <input type="radio" name="vault" checked={v.id === vault.id} onChange={() => navigate({ name: "open", vault: v.id })} />
                       <span>
@@ -179,7 +182,7 @@ export function Open({ vaultId }: { vaultId: VaultId }) {
                       </span>
                     </label>
                   ))}
-                  <span className="hint">{vault.accelerated ? vaultNames.demo.note : copy.vaultHint}</span>
+                  <span className="hint">{vaultNote}</span>
                 </fieldset>
 
                 <div className="field">
@@ -297,7 +300,25 @@ export function Open({ vaultId }: { vaultId: VaultId }) {
                   </span>
                 </div>
 
-                <details className="stack">
+                <fieldset className="field" style={{ border: 0, padding: 0, margin: 0 }}>
+                  <legend>{copy.budgetMode}</legend>
+                  <label className="check">
+                    <input type="radio" name="budget" checked={draft.budgetMode !== true} onChange={() => set({ budgetMode: false })} />
+                    <span>
+                      <strong style={{ fontWeight: 600 }}>{common.no}.</strong> <span className="muted">{copy.budgetModeOff}</span>
+                    </span>
+                  </label>
+                  <label className="check">
+                    <input type="radio" name="budget" checked={draft.budgetMode === true} onChange={() => set({ budgetMode: true })} />
+                    <span>
+                      <strong style={{ fontWeight: 600 }}>{common.yes}.</strong> <span className="muted">{copy.budgetModeOn}</span>
+                    </span>
+                  </label>
+                  <span className="hint">{copy.budgetModeNeedsPayout}</span>
+                  <span className="error">{fieldError("budget")}</span>
+                </fieldset>
+
+                <details className="stack" open={draft.budgetMode === true ? true : undefined}>
                   <summary>{copy.advanced}</summary>
                   <div className="split even" style={{ gap: "var(--space-4)" }}>
                     <div className="field">
@@ -448,6 +469,10 @@ export function Open({ vaultId }: { vaultId: VaultId }) {
                     <dd>{terms.ownerCanClose ? common.yes : common.no}</dd>
                   </div>
                   <div>
+                    <dt>{copy.budgetMode}</dt>
+                    <dd>{terms.budgetMode ? common.yes : common.no}</dd>
+                  </div>
+                  <div>
                     <dt>{copy.heirsTitle}</dt>
                     <dd>
                       {heirResult.heirs.length === 0 ? (
@@ -467,7 +492,9 @@ export function Open({ vaultId }: { vaultId: VaultId }) {
                 <p className="small">{copy.capRule}</p>
                 {!terms.ownerCanClose ? <Notice tone="warn">{copy.ownerCanCloseOff}</Notice> : null}
                 {heirResult.heirs.length === 0 ? <Notice tone="warn">{copy.heirsNone}</Notice> : null}
-                {vault.accelerated ? <Notice tone="warn">{vaultNames.demo.note}</Notice> : null}
+                {terms.budgetMode ? <Notice tone="warn">{copy.budgetModeOn}</Notice> : null}
+                {vault.source === "accelerated" ? <Notice tone="warn">{vaultNames.demo.note}</Notice> : null}
+                {vault.source === "none" ? <Notice tone="info">{vaultNames.noyield.note}</Notice> : null}
 
                 {!account ? (
                   <Notice tone="info" title={copy.needsAccount}>

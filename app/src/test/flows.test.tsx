@@ -2,7 +2,8 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
 import { App } from "../App";
-import { ALICE, BOB, fakeClient, harvestedLog, NOW, openedLog, positionState, spentLog, type FakeState } from "./fakeChain";
+import { vaultById } from "../config";
+import { AGENT_VAULT, ALICE, BOB, fakeClient, harvestedLog, NOW, openedLog, positionState, spentLog, type FakeState } from "./fakeChain";
 import { fakeSigner, renderUnlockable, renderWith, withWrites } from "./render";
 
 function go(hash: string) {
@@ -92,12 +93,16 @@ describe("position control panel", () => {
     expect(await screen.findByText("There is no position 9 in this vault.")).toBeInTheDocument();
   });
 
-  it("shows the read-only vault without controls", async () => {
-    go("#/position/v1/1");
-    renderWith(<App />, fakeClient(state()));
-    expect(await screen.findByText("Version 1 vault (read-only) · 5% a year, simulated")).toBeInTheDocument();
-    expect(screen.getAllByText("This vault is read-only here.").length).toBeGreaterThan(0);
-    expect(screen.queryByRole("button", { name: "Send" })).toBeNull();
+  it("shows budget mode, income and how long it lasts", async () => {
+    go("#/position/noyield/1");
+    const budget = positionState({ budgetMode: true, buffer: 0n, principal: 20_000_000n, payoutAmount: 1_000_000n });
+    const logs = [spentLog(1n, BOB, 500_000n, REF, AGENT_VAULT.deployBlock + 9_990n)];
+    renderWith(<App />, fakeClient(state({ positions: { "1": { state: budget, heirs: [], pendingYield: 0n, budgetRemaining: 500_000n } }, logs: logs.map((l) => ({ ...l, address: vaultById("noyield").address })) })));
+    expect(await screen.findByText("No-yield vault · no yield")).toBeInTheDocument();
+    expect(await screen.findByText(/^On. 0.5(0*) fUSD left in this window.$/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Pay in" })).toBeInTheDocument();
+    expect(screen.getByText("Counts buffer and principal.", { exact: false })).toBeInTheDocument();
+    expect(screen.getByText("Pay income")).toBeInTheDocument();
   });
 
   it("opens succession once the deadline has passed", async () => {

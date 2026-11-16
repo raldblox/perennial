@@ -1,8 +1,7 @@
-import { BaseError, ContractFunctionRevertedError, encodeAbiParameters, encodeErrorResult, encodeEventTopics, maxUint256, type Log } from "viem";
+import { BaseError, ContractFunctionRevertedError, encodeErrorResult, type Log } from "viem";
 import { describe, expect, it } from "vitest";
-import { vaultById } from "../config";
-import { AGENT_VAULT, ALICE, BOB, fakeClient, harvestedLog, openedLog, positionState, spentLog } from "../test/fakeChain";
-import { vaultAbi, vaultAbiV1 } from "./abi";
+import { AGENT_VAULT, ALICE, BOB, fakeClient, fundedLog, harvestedLog, openedLog, positionState, principalDrawnLog, spentLog } from "../test/fakeChain";
+import { vaultAbi } from "./abi";
 import { explainError } from "./errors";
 import { decodeVaultLog, historyOf, positionsInvolving, scanVaultEvents, slices, totals } from "./events";
 import { readKeyStatus, readPosition, readVaultInfo } from "./vault";
@@ -29,25 +28,15 @@ describe("vault events", () => {
     spentLog(1n, BOB, 2_000n, REF, 10_158_600n),
   ];
 
-  it("decodes version 2 logs, including spends", () => {
+  it("decodes the vault's logs, including spends", () => {
     expect(decodeVaultLog(logs[0] as Log)).toMatchObject({ kind: "Opened", positionId: 1n, owner: ALICE, beneficiary: ALICE, amount: 300_000_000n });
     expect(decodeVaultLog(logs[3] as Log)).toMatchObject({ kind: "Spent", positionId: 1n, to: BOB, amount: 2_000n, ref: REF });
     expect(decodeVaultLog({ ...logs[0], topics: [] } as unknown as Log)).toBeNull();
   });
 
-  it("decodes version 1's Opened, which has no buffer cap", () => {
-    const v1 = {
-      address: vaultById("v1").address,
-      blockNumber: 1n,
-      logIndex: 0,
-      transactionHash: `0x${"01".repeat(32)}`,
-      topics: encodeEventTopics({ abi: vaultAbiV1, eventName: "Opened", args: { positionId: 2n, owner: BOB, beneficiary: BOB } }),
-      data: encodeAbiParameters(
-        [{ type: "uint256" }, { type: "uint256" }, { type: "uint64" }, { type: "uint64" }, { type: "uint64" }, { type: "bool" }],
-        [50_000_000n, 0n, 86_400n, 86_400n, 86_400n, true],
-      ),
-    } as unknown as Log;
-    expect(decodeVaultLog(v1)).toMatchObject({ kind: "Opened", positionId: 2n, owner: BOB, amount: 50_000_000n });
+  it("decodes income paid in and draws on principal", () => {
+    expect(decodeVaultLog(fundedLog(1n, BOB, 7_000n, 10_158_700n))).toMatchObject({ kind: "Funded", positionId: 1n, from: BOB, amount: 7_000n });
+    expect(decodeVaultLog(principalDrawnLog(1n, 3_000n, 10_158_800n))).toMatchObject({ kind: "PrincipalDrawn", positionId: 1n, amount: 3_000n });
   });
 
   it("finds positions by role and totals the history", async () => {
@@ -77,10 +66,12 @@ describe("reads", () => {
     expect(p.state.bufferCap).toBe(50_000n);
   });
 
-  it("reads a version 1 position as never compounding", async () => {
-    const client = fakeClient({ positions: { "2": { state: positionState(), heirs: [], pendingYield: 0n } } });
-    const p = await readPosition(client, vaultById("v1"), 2n);
-    expect(p.state.bufferCap).toBe(maxUint256);
+  it("reads budget mode and what is left of the window", async () => {
+    const client = fakeClient({ positions: { "2": { state: positionState({ budgetMode: true, windowSpent: 1_000n }), heirs: [], pendingYield: 0n, budgetRemaining: 399_999_000n } } });
+    const p = await readPosition(client, AGENT_VAULT, 2n);
+    expect(p.state.budgetMode).toBe(true);
+    expect(p.state.windowSpent).toBe(1_000n);
+    expect(p.budgetRemaining).toBe(399_999_000n);
   });
 
   it("flags an asset that differs from the configuration", async () => {

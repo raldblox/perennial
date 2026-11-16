@@ -1,15 +1,14 @@
 /**
  * The parts of the deployed contracts the app calls, as human-readable ABI.
  * Kept in step with contracts/src by hand; the errors are listed so a revert
- * decodes to its name and arguments. `vaultAbi` is version 2; `vaultAbiV1`
- * holds what differs in the read-only version 1 vault.
+ * decodes to its name and arguments.
  */
 import { parseAbi } from "viem";
 
 export const vaultAbi = parseAbi([
   "struct Heir { address account; uint16 bps; }",
-  "struct OpenParams { uint256 amount; address beneficiary; uint256 payoutAmount; uint64 payoutInterval; uint64 checkInPeriod; uint64 gracePeriod; bool ownerCanClose; Heir[] heirs; uint256 bufferCap; }",
-  "struct Position { address owner; address beneficiary; bool ownerCanClose; bool succeeded; bool closed; uint64 payoutInterval; uint64 checkInPeriod; uint64 gracePeriod; uint64 lastCheckIn; uint64 lastPayout; uint256 payoutAmount; uint256 principal; uint256 shares; uint256 buffer; uint256 nonce; uint256 bufferCap; }",
+  "struct OpenParams { uint256 amount; address beneficiary; uint256 payoutAmount; uint64 payoutInterval; uint64 checkInPeriod; uint64 gracePeriod; bool ownerCanClose; Heir[] heirs; uint256 bufferCap; bool budgetMode; }",
+  "struct Position { address owner; address beneficiary; bool ownerCanClose; bool succeeded; bool closed; uint64 payoutInterval; uint64 checkInPeriod; uint64 gracePeriod; uint64 lastCheckIn; uint64 lastPayout; uint256 payoutAmount; uint256 principal; uint256 shares; uint256 buffer; uint256 nonce; uint256 bufferCap; bool budgetMode; uint64 windowStart; uint256 windowSpent; }",
 
   "function ASSET() view returns (address)",
   "function SOURCE() view returns (address)",
@@ -18,11 +17,13 @@ export const vaultAbi = parseAbi([
   "function heirs(uint256 positionId) view returns (Heir[])",
   "function pendingYield(uint256 positionId) view returns (uint256)",
   "function nextPayoutAt(uint256 positionId) view returns (uint256)",
+  "function budgetRemaining(uint256 positionId) view returns (uint256)",
   "function successionDeadline(uint256 positionId) view returns (uint256)",
   "function actionMessage(uint256 positionId, uint8 action, uint256 nonce, uint256 deadline, bytes32 paramsHash) view returns (bytes)",
 
   "function open(OpenParams p) returns (uint256 positionId)",
   "function topUp(uint256 positionId, uint256 amount)",
+  "function fund(uint256 positionId, uint256 amount)",
   "function harvest(uint256 positionId) returns (uint256)",
   "function claim(uint256 positionId, uint256 deadline, bytes signature) returns (uint256)",
   "function checkIn(uint256 positionId, uint256 deadline, bytes signature)",
@@ -43,6 +44,8 @@ export const vaultAbi = parseAbi([
   "event Claimed(uint256 indexed positionId, address indexed beneficiary, uint256 amount, uint256 periods)",
   "event Spent(uint256 indexed positionId, address indexed to, uint256 amount, bytes32 indexed ref)",
   "event Compounded(uint256 indexed positionId, uint256 amount)",
+  "event Funded(uint256 indexed positionId, address indexed from, uint256 amount)",
+  "event PrincipalDrawn(uint256 indexed positionId, uint256 amount)",
 
   "error ZeroAddress()",
   "error ZeroAmount()",
@@ -63,6 +66,8 @@ export const vaultAbi = parseAbi([
   "error NoHeirs(uint256 positionId)",
   "error CloseNotAllowed(uint256 positionId)",
   "error InsufficientBuffer(uint256 positionId, uint256 available)",
+  "error BudgetNeedsPayoutAmount()",
+  "error BudgetExceeded(uint256 positionId, uint256 remaining)",
   "error PQCUnavailable(address precompile)",
   "error PQCKeyNotRegistered(address account)",
   "error PQCKeyUnsupported(address account)",
@@ -74,13 +79,6 @@ export const vaultAbi = parseAbi([
   "error ERC20InsufficientAllowance(address spender, uint256 allowance, uint256 needed)",
   "error SafeERC20FailedOperation(address token)",
   "error ReentrancyGuardReentrantCall()",
-]);
-
-/** Version 1: no buffer cap, no spend. Only what reads and history need. */
-export const vaultAbiV1 = parseAbi([
-  "struct Position { address owner; address beneficiary; bool ownerCanClose; bool succeeded; bool closed; uint64 payoutInterval; uint64 checkInPeriod; uint64 gracePeriod; uint64 lastCheckIn; uint64 lastPayout; uint256 payoutAmount; uint256 principal; uint256 shares; uint256 buffer; uint256 nonce; }",
-  "function position(uint256 positionId) view returns (Position)",
-  "event Opened(uint256 indexed positionId, address indexed owner, address indexed beneficiary, uint256 amount, uint256 payoutAmount, uint64 payoutInterval, uint64 checkInPeriod, uint64 gracePeriod, bool ownerCanClose)",
 ]);
 
 export const erc20Abi = parseAbi([

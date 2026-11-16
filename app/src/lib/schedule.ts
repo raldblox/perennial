@@ -24,8 +24,12 @@ export interface PositionState {
   shares: bigint;
   buffer: bigint;
   nonce: bigint;
-  /** Most the buffer keeps; the rest is added to the principal (version 2). */
+  /** Most the buffer keeps; the rest is added to the principal. */
   bufferCap: bigint;
+  /** Spends and claims may draw on principal, at most `payoutAmount` per `payoutInterval` in total. */
+  budgetMode: boolean;
+  windowStart: bigint;
+  windowSpent: bigint;
 }
 
 export type Phase =

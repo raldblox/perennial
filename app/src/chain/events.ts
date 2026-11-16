@@ -5,7 +5,7 @@
  */
 import { decodeEventLog, getAddress, type Address, type Hex, type Log, type PublicClient } from "viem";
 import type { VaultConfig } from "../config";
-import { vaultAbi, vaultAbiV1 } from "./abi";
+import { vaultAbi } from "./abi";
 
 export const LOG_RANGE = 10_000n;
 
@@ -24,6 +24,8 @@ export type VaultEvent =
   | (Base & { kind: "Claimed"; to: Address; amount: bigint })
   | (Base & { kind: "Spent"; to: Address; amount: bigint; ref: Hex })
   | (Base & { kind: "Compounded"; amount: bigint })
+  | (Base & { kind: "Funded"; from: Address; amount: bigint })
+  | (Base & { kind: "PrincipalDrawn"; amount: bigint })
   | (Base & { kind: "Distributed"; amount: bigint })
   | (Base & { kind: "CheckedIn" })
   | (Base & { kind: "SuccessionTriggered" })
@@ -45,20 +47,7 @@ export function decodeVaultLog(log: Log): VaultEvent | null {
   try {
     decoded = decodeEventLog({ abi: vaultAbi, data: log.data, topics: log.topics });
   } catch {
-    // Version 1's Opened has one field fewer.
-    try {
-      const v1 = decodeEventLog({ abi: vaultAbiV1, data: log.data, topics: log.topics });
-      return {
-        ...base,
-        kind: "Opened",
-        positionId: v1.args.positionId,
-        owner: getAddress(v1.args.owner),
-        beneficiary: getAddress(v1.args.beneficiary),
-        amount: v1.args.amount,
-      };
-    } catch {
-      return null;
-    }
+    return null;
   }
   switch (decoded.eventName) {
     case "Opened":
@@ -73,6 +62,10 @@ export function decodeVaultLog(log: Log): VaultEvent | null {
       return { ...base, kind: "Claimed", positionId: decoded.args.positionId, to: getAddress(decoded.args.beneficiary), amount: decoded.args.amount };
     case "Spent":
       return { ...base, kind: "Spent", positionId: decoded.args.positionId, to: getAddress(decoded.args.to), amount: decoded.args.amount, ref: decoded.args.ref };
+    case "Funded":
+      return { ...base, kind: "Funded", positionId: decoded.args.positionId, from: getAddress(decoded.args.from), amount: decoded.args.amount };
+    case "PrincipalDrawn":
+      return { ...base, kind: "PrincipalDrawn", positionId: decoded.args.positionId, amount: decoded.args.amount };
     case "Compounded":
       return { ...base, kind: "Compounded", positionId: decoded.args.positionId, amount: decoded.args.amount };
     case "Distributed":

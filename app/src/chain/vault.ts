@@ -2,10 +2,10 @@
  * Reads from a deployed vault, its asset, its yield source and the key
  * registry precompile. Everything here works without an account.
  */
-import { getAddress, maxUint256, type Address, type PublicClient } from "viem";
+import { getAddress, type Address, type PublicClient } from "viem";
 import { config, PQC_KEY_STATUS, type VaultConfig } from "../config";
 import { type PositionState } from "../lib/schedule";
-import { erc20Abi, pqcKeyStatusAbi, vaultAbi, vaultAbiV1, yieldSourceAbi } from "./abi";
+import { erc20Abi, pqcKeyStatusAbi, vaultAbi, yieldSourceAbi } from "./abi";
 
 export interface VaultInfo {
   asset: Address;
@@ -29,6 +29,8 @@ export interface PositionView {
   state: PositionState;
   heirs: Heir[];
   pendingYield: bigint;
+  /** What spends and claims may still take in the current budget window; 0 without budget mode. */
+  budgetRemaining: bigint;
 }
 
 export interface KeyStatus {
@@ -63,22 +65,18 @@ export async function readVaultInfo(client: PublicClient, vault: VaultConfig): P
 }
 
 async function readState(client: PublicClient, vault: VaultConfig, id: bigint): Promise<PositionState> {
-  if (vault.version === 1) {
-    const s = await client.readContract({ address: vault.address, abi: vaultAbiV1, functionName: "position", args: [id] });
-    // Version 1 has no cap: it never compounds.
-    return { ...s, owner: getAddress(s.owner), beneficiary: getAddress(s.beneficiary), bufferCap: maxUint256 };
-  }
   const s = await client.readContract({ address: vault.address, abi: vaultAbi, functionName: "position", args: [id] });
   return { ...s, owner: getAddress(s.owner), beneficiary: getAddress(s.beneficiary) };
 }
 
 export async function readPosition(client: PublicClient, vault: VaultConfig, id: bigint): Promise<PositionView> {
-  const [state, heirs, pendingYield] = await Promise.all([
+  const [state, heirs, pendingYield, budgetRemaining] = await Promise.all([
     readState(client, vault, id),
     client.readContract({ address: vault.address, abi: vaultAbi, functionName: "heirs", args: [id] }),
     client.readContract({ address: vault.address, abi: vaultAbi, functionName: "pendingYield", args: [id] }),
+    client.readContract({ address: vault.address, abi: vaultAbi, functionName: "budgetRemaining", args: [id] }),
   ]);
-  return { id, state, heirs: heirs.map((h) => ({ account: getAddress(h.account), bps: h.bps })), pendingYield };
+  return { id, state, heirs: heirs.map((h) => ({ account: getAddress(h.account), bps: h.bps })), pendingYield, budgetRemaining };
 }
 
 export async function readKeyStatus(client: PublicClient, account: Address): Promise<KeyStatus> {

@@ -22,45 +22,41 @@ function absolute(url: string): string {
   return `${origin}${url.startsWith("/") ? "" : "/"}${url}`.replace(/\/$/, "");
 }
 
-export type VaultId = "agent" | "demo" | "v1";
+export type VaultId = "agent" | "demo" | "noyield";
+
+/** What the vault's source pays. Every rate on the testnet is simulated (decision 006). */
+export type SourceKind = "none" | "simulated" | "accelerated";
 
 export interface VaultConfig {
   id: VaultId;
   address: Address;
-  /** 2 has spend and the buffer cap; 1 has neither. */
-  version: 1 | 2;
   /** First block to scan for the vault's events. */
   deployBlock: bigint;
-  /** The app sends transactions only to writable vaults. */
-  writable: boolean;
-  /** Its source pays the accelerated testnet rate: for demonstrations, never a return. */
-  accelerated: boolean;
+  /** "accelerated" is for demonstrations, never a return. */
+  source: SourceKind;
 }
+
+/** Until the vaults are deployed, an address that holds no code: reads fail and say so. */
+const NOT_DEPLOYED: Address = "0x0000000000000000000000000000000000000000";
 
 const vaults: readonly VaultConfig[] = [
   {
     id: "agent",
-    address: address("VITE_VAULT_ADDRESS", "0xf8e6a785c718b4b41A4EfDa288c72A3A85c0D1f4"),
-    version: 2,
-    deployBlock: BigInt(env("VITE_VAULT_DEPLOY_BLOCK") ?? "10149536"),
-    writable: true,
-    accelerated: false,
+    address: address("VITE_VAULT_ADDRESS", NOT_DEPLOYED),
+    deployBlock: BigInt(env("VITE_VAULT_DEPLOY_BLOCK") ?? "0"),
+    source: "simulated",
+  },
+  {
+    id: "noyield",
+    address: address("VITE_NOYIELD_VAULT_ADDRESS", NOT_DEPLOYED),
+    deployBlock: BigInt(env("VITE_NOYIELD_VAULT_DEPLOY_BLOCK") ?? "0"),
+    source: "none",
   },
   {
     id: "demo",
-    address: address("VITE_DEMO_VAULT_ADDRESS", "0xbE25A982f41182aA68000110933337fDd5931289"),
-    version: 2,
-    deployBlock: BigInt(env("VITE_DEMO_VAULT_DEPLOY_BLOCK") ?? "10149554"),
-    writable: true,
-    accelerated: true,
-  },
-  {
-    id: "v1",
-    address: address("VITE_V1_VAULT_ADDRESS", "0x2fB3057c42fB97964F5a86fD20ecD90969d06593"),
-    version: 1,
-    deployBlock: BigInt(env("VITE_V1_VAULT_DEPLOY_BLOCK") ?? "10124332"),
-    writable: false,
-    accelerated: false,
+    address: address("VITE_DEMO_VAULT_ADDRESS", NOT_DEPLOYED),
+    deployBlock: BigInt(env("VITE_DEMO_VAULT_DEPLOY_BLOCK") ?? "0"),
+    source: "accelerated",
   },
 ];
 

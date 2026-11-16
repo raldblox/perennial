@@ -17,9 +17,11 @@ export interface TermsDraft {
   checkInDays: string;
   graceDays: string;
   ownerCanClose: boolean;
+  /** Optional so older drafts stay valid; off when absent. */
+  budgetMode?: boolean;
 }
 
-export type TermsError = "amount" | "balance" | "beneficiary" | "beneficiaryKey" | "payout" | "days" | "graceDays" | "ownerKey";
+export type TermsError = "amount" | "balance" | "beneficiary" | "beneficiaryKey" | "payout" | "days" | "graceDays" | "ownerKey" | "budget";
 
 export interface Terms {
   amount: bigint;
@@ -29,6 +31,7 @@ export interface Terms {
   checkInPeriod: bigint;
   gracePeriod: bigint;
   ownerCanClose: boolean;
+  budgetMode: boolean;
 }
 
 export interface TermsContext {
@@ -62,6 +65,7 @@ export function validateTerms(draft: TermsDraft, ctx: TermsContext): { terms: Te
 
   const payout = draft.payout.trim() === "" ? ({ ok: true, value: 0n } as const) : parseDecimal(draft.payout, ctx.decimals);
   if (!payout.ok) errors.payout = true;
+  else if (draft.budgetMode === true && payout.value === 0n) errors.budget = true;
 
   const checkIn = wholeDays(draft.checkInDays, 1n);
   if (checkIn === null) errors.days = true;
@@ -82,6 +86,7 @@ export function validateTerms(draft: TermsDraft, ctx: TermsContext): { terms: Te
       checkInPeriod: checkIn * DAY,
       gracePeriod: grace * DAY,
       ownerCanClose: draft.ownerCanClose,
+      budgetMode: draft.budgetMode === true,
     },
     errors,
   };

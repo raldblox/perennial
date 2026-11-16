@@ -4,7 +4,9 @@ A static React app for the Perennial vaults on the QoreChain testnet: an
 overview that sizes a deposit from an agent's calls an hour, a form to fund
 an agent's inference, and a control panel per position (health, a ledger with
 every transaction and reference, and the controls). Everything reads without
-an account. It points at the version 2 vaults and keeps version 1 readable.
+an account. It points at three vaults: one whose source pays nothing, one at
+a simulated 5% and one at an accelerated testnet rate for demonstrations.
+Positions can opt into budget mode, and anyone can pay income into one.
 
 ```sh
 pnpm install

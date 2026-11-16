@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { callsPerHourFor, dayOfCalls, depositForCalls, formatCalls, runwayHours, yieldPerHour } from "./inference";
+import { callsPerHourFor, dayOfCalls, depositForCalls, formatCalls, lastsFor, runwayHours, yieldPerDay, yieldPerHour } from "./inference";
 
 const UNIT = 1_000_000n; // fUSD has 6 decimals
 const PRICE = 2_000n; // 0.002 fUSD a call
@@ -56,5 +56,32 @@ describe("running a position", () => {
   it("says how long the buffer lasts", () => {
     expect(runwayHours(10_000n, 2_000n)).toBe(5n);
     expect(runwayHours(10_000n, 0n)).toBeNull();
+  });
+});
+
+describe("how long a position lasts", () => {
+  const base = { buffer: 10n * UNIT, principal: 1_000n * UNIT, budgetMode: false };
+
+  it("lasts indefinitely when nothing is spent", () => {
+    expect(lastsFor({ ...base, spendPerDay: 0n, incomePerDay: 0n })).toEqual({ kind: "idle" });
+  });
+
+  it("lasts indefinitely once income covers the spending", () => {
+    expect(lastsFor({ ...base, spendPerDay: 5n * UNIT, incomePerDay: 5n * UNIT })).toEqual({ kind: "covered" });
+  });
+
+  it("without budget mode counts only the buffer", () => {
+    // 10 fUSD buffer, 5 a day spent, 1 a day earned: 10 / 4 = 2.5 days.
+    expect(lastsFor({ ...base, spendPerDay: 5n * UNIT, incomePerDay: 1n * UNIT })).toEqual({ kind: "days", daysX100: 250n });
+  });
+
+  it("with budget mode counts the buffer and the principal", () => {
+    // 1,010 fUSD reachable, 5 a day spent, nothing earned: 202 days.
+    expect(lastsFor({ ...base, budgetMode: true, spendPerDay: 5n * UNIT, incomePerDay: 0n })).toEqual({ kind: "days", daysX100: 20_200n });
+  });
+
+  it("a source that pays nothing earns nothing", () => {
+    expect(yieldPerDay(1_000n * UNIT, 0n)).toBe(0n);
+    expect(yieldPerDay(365n * UNIT, 10_000n)).toBe(1n * UNIT);
   });
 });

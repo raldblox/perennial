@@ -50,3 +50,26 @@ export function formatCalls(callsX100: bigint): string {
   const frac = (callsX100 % CALLS_SCALE).toString().padStart(2, "0").replace(/0+$/, "");
   return frac ? `${whole.toString()}.${frac}` : whole.toString();
 }
+
+/**
+ * How long a position keeps paying at a spending rate, given its income.
+ *
+ * Without budget mode only the buffer can be spent; with it, the buffer and
+ * then the principal (decision 007). Income is yield plus whatever is paid in
+ * with `fund`. When income covers the spending, it lasts indefinitely.
+ * Days are returned in hundredths, rounded down.
+ */
+export type Lasts = { kind: "idle" } | { kind: "covered" } | { kind: "days"; daysX100: bigint };
+
+export function lastsFor(opts: { spendPerDay: bigint; incomePerDay: bigint; buffer: bigint; principal: bigint; budgetMode: boolean }): Lasts {
+  const { spendPerDay, incomePerDay, buffer, principal, budgetMode } = opts;
+  if (spendPerDay <= 0n) return { kind: "idle" };
+  if (incomePerDay >= spendPerDay) return { kind: "covered" };
+  const reachable = budgetMode ? buffer + principal : buffer;
+  return { kind: "days", daysX100: (reachable * 100n) / (spendPerDay - incomePerDay) };
+}
+
+/** What a principal earns in a day at the source's rate. Rounds down. */
+export function yieldPerDay(principal: bigint, rateBps: bigint): bigint {
+  return (principal * rateBps) / (BPS * 365n);
+}

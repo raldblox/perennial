@@ -1,5 +1,5 @@
 /**
- * Writes to a version 2 vault from the unlocked account.
+ * Writes to a vault from the unlocked account.
  *
  * Every write is simulated first, so a call the contract would refuse fails
  * here with its decoded error and costs nothing. The gas limit is the estimate
@@ -71,6 +71,7 @@ export interface OpenParams {
   ownerCanClose: boolean;
   heirs: { account: Address; bps: number }[];
   bufferCap: bigint;
+  budgetMode: boolean;
 }
 
 export function openPosition(ctx: WriteContext, params: OpenParams): Promise<Hash> {
@@ -79,6 +80,11 @@ export function openPosition(ctx: WriteContext, params: OpenParams): Promise<Has
 
 export function topUp(ctx: WriteContext, id: bigint, amount: bigint): Promise<Hash> {
   return send(ctx, { address: ctx.vault, abi: vaultAbi, functionName: "topUp", args: [id, amount] });
+}
+
+/** Pays income into the buffer. Anyone may; above the cap it joins the principal. */
+export function fund(ctx: WriteContext, id: bigint, amount: bigint): Promise<Hash> {
+  return send(ctx, { address: ctx.vault, abi: vaultAbi, functionName: "fund", args: [id, amount] });
 }
 
 export function harvest(ctx: WriteContext, id: bigint): Promise<Hash> {

@@ -30,5 +30,14 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
     css: false,
+    // Tests run against the fake chain, with addresses of their own, whatever is deployed.
+    env: {
+      VITE_VAULT_ADDRESS: "0x00000000000000000000000000000000000a6e01",
+      VITE_VAULT_DEPLOY_BLOCK: "10149536",
+      VITE_NOYIELD_VAULT_ADDRESS: "0x00000000000000000000000000000000000a6e02",
+      VITE_NOYIELD_VAULT_DEPLOY_BLOCK: "10149536",
+      VITE_DEMO_VAULT_ADDRESS: "0x00000000000000000000000000000000000a6e03",
+      VITE_DEMO_VAULT_DEPLOY_BLOCK: "10149554",
+    },
   },
 });

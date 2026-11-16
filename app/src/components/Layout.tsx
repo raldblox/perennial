@@ -122,9 +122,9 @@ function VaultLine({ vault }: { vault: VaultConfig }) {
   );
 }
 
-/** Whether writes to this vault are allowed: right chain, expected asset, writable vault. */
+/** Whether writes to this vault are allowed: right chain and expected asset. */
 export function useWritesAllowed(vault: VaultConfig): boolean {
   const chainId = useChainId();
   const info = useVaultInfo(vault);
-  return vault.writable && chainId.data === config.chainId && info.data?.assetMatches === true;
+  return chainId.data === config.chainId && info.data?.assetMatches === true;
 }

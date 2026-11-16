@@ -17,7 +17,7 @@ const KEY = `0x${"ab".repeat(2592)}` as const;
 export interface FakeState {
   chainId?: number;
   now?: bigint;
-  positions: Record<string, { state: PositionState; heirs: { account: Address; bps: number }[]; pendingYield: bigint }>;
+  positions: Record<string, { state: PositionState; heirs: { account: Address; bps: number }[]; pendingYield: bigint; budgetRemaining?: bigint }>;
   logs?: Log[];
   keys?: Record<string, boolean>;
   balances?: Record<string, bigint>;
@@ -44,6 +44,9 @@ export function positionState(overrides: Partial<PositionState> = {}): PositionS
     buffer: 1_250_000_000n,
     nonce: 3n,
     bufferCap: 2n ** 256n - 1n,
+    budgetMode: false,
+    windowStart: NOW - 86_400n,
+    windowSpent: 0n,
     ...overrides,
   };
 }
@@ -69,6 +72,28 @@ export function spentLog(id: bigint, to: Address, amount: bigint, ref: `0x${stri
     blockNumber: block,
     transactionHash: `0x${"ef".repeat(32)}`,
     topics: encodeEventTopics({ abi: vaultAbi, eventName: "Spent", args: { positionId: id, to, ref } }) as Log["topics"],
+    data: encodeAbiParameters([{ type: "uint256" }], [amount]),
+  } as unknown as Log;
+}
+
+export function fundedLog(id: bigint, from: Address, amount: bigint, block: bigint): Log {
+  return {
+    address: AGENT_VAULT.address,
+    logIndex: 2,
+    blockNumber: block,
+    transactionHash: `0x${"fd".repeat(32)}`,
+    topics: encodeEventTopics({ abi: vaultAbi, eventName: "Funded", args: { positionId: id, from } }) as Log["topics"],
+    data: encodeAbiParameters([{ type: "uint256" }], [amount]),
+  } as unknown as Log;
+}
+
+export function principalDrawnLog(id: bigint, amount: bigint, block: bigint): Log {
+  return {
+    address: AGENT_VAULT.address,
+    logIndex: 3,
+    blockNumber: block,
+    transactionHash: `0x${"dd".repeat(32)}`,
+    topics: encodeEventTopics({ abi: vaultAbi, eventName: "PrincipalDrawn", args: { positionId: id } }) as Log["topics"],
     data: encodeAbiParameters([{ type: "uint256" }], [amount]),
   } as unknown as Log;
 }
@@ -114,6 +139,8 @@ export function fakeClient(state: FakeState): PublicClient {
         return state.positions[id]?.heirs ?? [];
       case "pendingYield":
         return state.positions[id]?.pendingYield ?? 0n;
+      case "budgetRemaining":
+        return state.positions[id]?.budgetRemaining ?? 0n;
       case "balanceOf":
         return state.balances?.[getAddress(String(args?.[0]))] ?? 0n;
       case "allowance":

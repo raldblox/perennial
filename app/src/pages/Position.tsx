@@ -3,7 +3,7 @@ import { getAddress, isAddress, keccak256, maxUint256, stringToHex, type Address
 import type { ActionName } from "../chain/abi";
 import { explainError } from "../chain/errors";
 import { historyOf, type VaultEvent } from "../chain/events";
-import { approve, distribute, harvest, prepareAction, sendSignedAction, topUp, triggerSuccession, type PreparedAction, type SpendParams, type WriteContext } from "../chain/write";
+import { approve, distribute, fund, harvest, prepareAction, sendSignedAction, topUp, triggerSuccession, type PreparedAction, type SpendParams, type WriteContext } from "../chain/write";
 import { AccountPanel, useReadiness } from "../components/AccountPanel";
 import { HeirsEditor } from "../components/HeirsEditor";
 import { useWritesAllowed } from "../components/Layout";
@@ -14,7 +14,7 @@ import { config, vaultById, type VaultConfig, type VaultId } from "../config";
 import { actions as actionCopy, common, intervals as intervalCopy, panel as copy, phases, vaultNames } from "../copy";
 import { parseDecimal } from "../lib/decimal";
 import { bpsToPercent, validateHeirs, type HeirDraft } from "../lib/heirs";
-import { runwayHours, yieldPerHour } from "../lib/inference";
+import { lastsFor, yieldPerDay, yieldPerHour } from "../lib/inference";
 import { formatDuration, formatRelative, formatUtc, INTERVALS, timeline, type Phase } from "../lib/schedule";
 import { useBalances, useBlockClock, useChainNow, useClient, usePosition, useVaultEvents, useVaultInfo } from "../state/queries";
 import { useSession } from "../state/session";
@@ -53,6 +53,22 @@ export function lastDaySpending(
     calls += 1;
   }
   return { amount, calls, perHour: amount / 24n };
+}
+
+/** Income paid in with `fund` over the last 30 days, as a daily average. */
+export function recentIncomePerDay(
+  events: readonly VaultEvent[],
+  id: bigint,
+  clock: { number: bigint; timestamp: bigint; secondsPer1000Blocks: bigint } | undefined,
+): bigint | null {
+  if (!clock) return null;
+  let amount = 0n;
+  for (const e of events) {
+    if (e.kind !== "Funded" || e.positionId !== id) continue;
+    const age = ((clock.number - e.block) * clock.secondsPer1000Blocks) / 1_000n;
+    if (age <= 30n * DAY) amount += e.amount;
+  }
+  return amount / 30n;
 }
 
 export function PositionPage({ vaultId, id }: { vaultId: VaultId; id: bigint }) {
@@ -95,8 +111,14 @@ export function PositionPage({ vaultId, id }: { vaultId: VaultId; id: bigint }) 
   const line = timeline(s, t, p.heirs.length);
   const history = events.data ? historyOf(events.data, id) : [];
   const spending = events.data ? lastDaySpending(events.data, id, clock.data) : null;
-  const earnPerHour = info.data?.rateBps ? yieldPerHour(s.principal, info.data.rateBps) : null;
-  const runway = spending ? runwayHours(s.buffer, spending.perHour) : null;
+  const rateBps = info.data ? (info.data.rateBps ?? 0n) : null;
+  const earnPerHour = rateBps !== null ? yieldPerHour(s.principal, rateBps) : null;
+  const paidIn = events.data ? recentIncomePerDay(events.data, id, clock.data) : null;
+  const incomePerDay = rateBps !== null && paidIn !== null ? yieldPerDay(s.principal, rateBps) + paidIn : null;
+  const lasts =
+    spending && incomePerDay !== null
+      ? lastsFor({ spendPerDay: spending.amount, incomePerDay, buffer: s.buffer, principal: s.principal, budgetMode: s.budgetMode })
+      : null;
   const mine = (a: Address) => a === account?.evm || a === account?.nativeEvm;
   const capped = s.bufferCap !== maxUint256;
 
@@ -114,7 +136,8 @@ export function PositionPage({ vaultId, id }: { vaultId: VaultId; id: bigint }) 
             <Status tone={PHASE_TONE[line.phase]}>{phases[line.phase].name}</Status>
           </div>
           <p className="muted">{phases[line.phase].detail}</p>
-          {vault.accelerated ? <Notice tone="warn">{vaultNames.demo.note}</Notice> : null}
+          {vault.source === "accelerated" ? <Notice tone="warn">{vaultNames.demo.note}</Notice> : null}
+          {vault.source === "none" ? <Notice tone="info">{vaultNames.noyield.note}</Notice> : null}
         </div>
 
         <h2 className="label" style={{ marginBottom: "var(--space-3)" }}>
@@ -122,8 +145,30 @@ export function PositionPage({ vaultId, id }: { vaultId: VaultId; id: bigint }) 
         </h2>
         <dl className="ledger" style={{ marginBottom: "var(--space-6)" }}>
           <div>
-            <dt>{copy.runway}</dt>
-            <dd>{s.closed ? actionCopy.unavailable.closed : runway === null ? copy.runwayIdle : copy.runwayValue(formatDuration(runway * 3_600n))}</dd>
+            <dt>{copy.lasts}</dt>
+            <dd>
+              {s.closed ? (
+                actionCopy.unavailable.closed
+              ) : lasts === null ? (
+                <span className="skeleton">…</span>
+              ) : (
+                <>
+                  {lasts.kind === "idle" ? copy.lastsIdle : lasts.kind === "covered" ? copy.lastsForever : copy.lastsDays(formatAmount(lasts.daysX100, 2, 2))}
+                  <br />
+                  <span className="small faint">
+                    {copy.lastsNote} {copy.lastsReach(s.budgetMode ? copy.lastsReachBudget : copy.lastsReachBuffer)}
+                  </span>
+                </>
+              )}
+            </dd>
+          </div>
+          <div>
+            <dt>{copy.income}</dt>
+            <dd>{incomePerDay === null ? <span className="skeleton">…</span> : copy.incomeValue(`${formatAmount(incomePerDay, DECIMALS, 6)} ${symbol}`)}</dd>
+          </div>
+          <div>
+            <dt>{copy.budget}</dt>
+            <dd>{s.budgetMode ? copy.budgetOn(`${formatAmount(p.budgetRemaining, DECIMALS, 6)} ${symbol}`) : copy.budgetOff}</dd>
           </div>
           <div>
             <dt>{copy.earning}</dt>
@@ -288,7 +333,7 @@ export function PositionPage({ vaultId, id }: { vaultId: VaultId; id: bigint }) 
 
           <aside className="stack-lg">
             <Controls vault={vault} id={id} />
-            {account && vault.writable ? <AccountPanel vault={vault} /> : null}
+            {account ? <AccountPanel vault={vault} /> : null}
           </aside>
         </div>
       </section>
@@ -311,22 +356,13 @@ function Controls({ vault, id }: { vault: VaultConfig; id: bigint }) {
   const [heirDrafts, setHeirDrafts] = useState<HeirDraft[]>([]);
   const [heirsTouched, setHeirsTouched] = useState(false);
   const [topUpAmount, setTopUpAmount] = useState("");
+  const [fundAmount, setFundAmount] = useState("");
   const [confirmTrigger, setConfirmTrigger] = useState(false);
   const [spendTo, setSpendTo] = useState("");
   const [spendAmount, setSpendAmount] = useState("0.002");
   const [spendRef, setSpendRef] = useState("");
 
   if (!position.data) return null;
-  if (!vault.writable) {
-    return (
-      <section className="stack" aria-labelledby="controls-title">
-        <h2 id="controls-title" className="label">
-          {copy.controls}
-        </h2>
-        <Notice tone="info">{copy.readOnly}</Notice>
-      </section>
-    );
-  }
 
   const s = position.data.state;
   const t = now.data ?? BigInt(Math.floor(Date.now() / 1000));
@@ -388,6 +424,9 @@ function Controls({ vault, id }: { vault: VaultConfig; id: bigint }) {
   const topUpParsed = parseDecimal(topUpAmount, DECIMALS);
   const topUpValue = topUpParsed.ok ? topUpParsed.value : 0n;
   const topUpNeedsApproval = (balances.data?.allowance ?? 0n) < topUpValue;
+  const fundParsed = parseDecimal(fundAmount, DECIMALS);
+  const fundValue = fundParsed.ok ? fundParsed.value : 0n;
+  const fundNeedsApproval = (balances.data?.allowance ?? 0n) < fundValue;
   const spendParsed = parseDecimal(spendAmount, DECIMALS);
   const spendValid = isAddress(spendTo.trim(), { strict: false }) && spendParsed.ok && spendParsed.value > 0n;
 
@@ -490,6 +529,32 @@ function Controls({ vault, id }: { vault: VaultConfig; id: bigint }) {
           </div>
           <span id="topup-hint" className="small faint">
             {copy.topUpHint}
+          </span>
+        </form>
+      ) : null}
+
+      {!s.closed ? (
+        <form
+          className="stack"
+          style={{ gap: "var(--space-2)", paddingBottom: "var(--space-4)", borderBottom: "1px solid var(--rule)" }}
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!fundParsed.ok || fundValue === 0n) return;
+            if (fundNeedsApproval) void tx.run(actionCopy.fund.approved, (onStep) => approve(ctx(onStep), config.asset, fundValue));
+            else void tx.run(actionCopy.fund.done, (onStep) => fund(ctx(onStep), id, fundValue));
+          }}
+        >
+          <label htmlFor="fund">
+            <strong style={{ fontWeight: 600 }}>{copy.fund}</strong>
+          </label>
+          <div className="input-suffix">
+            <input id="fund" inputMode="decimal" value={fundAmount} onChange={(e) => setFundAmount(e.target.value)} aria-describedby="fund-hint" />
+            <button type="submit" className="button small quiet" disabled={!canAct || !fundParsed.ok || fundValue === 0n}>
+              {fundNeedsApproval ? actionCopy.fund.approve : actionCopy.fund.label}
+            </button>
+          </div>
+          <span id="fund-hint" className="small faint">
+            {copy.fundHint}
           </span>
         </form>
       ) : null}
