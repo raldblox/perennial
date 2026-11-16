@@ -67,3 +67,5 @@ contract can collect.** Every live source is on the native lane.
   the app and the threat model say so.
 - A real ERC-4626 can lose value. The vault then pays nothing until it
   recovers and never tops up the principal (tested against the adapter).
+- Sources on other EVM chains, and the Aave adapter, are
+  [decision 008](008-yield-sources-on-other-chains.md).
