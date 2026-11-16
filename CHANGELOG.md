@@ -8,17 +8,24 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- Vault version 2: `spend(positionId, to, amount, ref, deadline, signature)`,
+- `spend(positionId, to, amount, ref, deadline, signature)`,
   a beneficiary-signed payment from the buffer with `Spent` indexed by
   `ref`, and a per-position buffer cap above which yield is compounded into
   the principal (decisions 004 and 005). Deployed to the testnet with a 5%
   source and an accelerated demo source; deployment record and compiler
   settings in `docs/deployments.md`.
+- Budget mode, an opt-in at open that lets `spend` and scheduled payouts
+  draw on principal within `payoutAmount` per `payoutInterval`, and
+  `fund(positionId, amount)`, income into the buffer from anyone
+  (decision 007).
+- `AaveV3Source`, an adapter for Aave V3 markets, optional fork tests
+  against real Aave and sDAI, and decision 008 on sources for other EVM
+  chains.
 - `ERC4626Source`, a guarded adapter for real ERC-4626 vaults, and decision
   006 on where real yield could come from.
 - `pnpm swap`: QOR to fUSD in the native AMM, converted for contracts.
 - Web app: fund an agent's inference, a control panel per position, an
-  in-page swap, and version 1 kept readable.
+  in-page swap.
 - `docs/AUDIT.md`, ready for the AI contract review.
 
 - `PerennialVault`: open and top up a position, permissionless harvest,

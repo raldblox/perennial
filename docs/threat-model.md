@@ -2,14 +2,14 @@
 
 What Perennial protects, from whom, what it trusts, and where it is weak.
 Written for the contracts in `contracts/src` and the web app in `app/`, as
-deployed on the QoreChain testnet (version 2, with `spend` and the buffer
-cap; see [deployments](deployments.md)). Last reviewed 16 November 2026.
+deployed on the QoreChain testnet (with `spend`, the buffer cap, budget
+mode and `fund`; see [deployments](deployments.md)). Last reviewed 16 November 2026.
 
 ## Assets
 
 | Asset | Where it lives | What losing it means |
 |---|---|---|
-| Principal | yield-source shares held by the vault for each position | the capital behind the income |
+| Principal | yield-source shares held by the vault for each position | the capital behind the income; in budget mode also what payouts draw on, within the rate limit |
 | Buffer | asset tokens held by the vault, per position, at most the position's cap after every harvest, claim, distribution or spend | harvested income not yet paid; what a stolen beneficiary key can spend |
 | Schedule and proof of life | `payoutAmount`, `payoutInterval`, `lastPayout`, `lastCheckIn` | a forged check-in delays succession; a forged claim spends the buffer early |
 | Heirs | the position's heir list and weights | whoever is on it inherits the income |
@@ -30,7 +30,7 @@ cap; see [deployments](deployments.md)). Last reviewed 16 November 2026.
 - **Payee**: the recipient a spend names, such as an inference service. It
   finds its payment by the `Spent` event's `ref`.
 - **Anyone**: may harvest, trigger succession after the deadline, distribute
-  after succession, and top up principal.
+  after succession, top up principal and pay income into the buffer (`fund`).
 - **Attacker with a classical key**: has recovered an account's secp256k1 key,
   for example with a quantum computer, or stole it.
 - **Attacker with an ML-DSA-87 key**: has the role holder's post-quantum
@@ -87,8 +87,12 @@ holder.
   after every harvest the buffer is cut back to its cap
   ([decision 004](decisions/004-buffer-cap.md)). It can also claim (to the
   beneficiary), check in to postpone succession, and replace the heirs with
-  its own account. It can never touch the principal
-  ([decision 005](decisions/005-spend.md)).
+  its own account. Without budget mode it can never touch the principal
+  ([decision 005](decisions/005-spend.md)). With budget mode it can take at
+  most `payoutAmount` per `payoutInterval` in total across spends and claims,
+  from buffer and principal together, and never more than the position holds
+  ([decision 007](decisions/007-budget-mode-and-income.md)); the owner's close
+  is what stops it.
 - **The owner's key** can close the position if the right was kept, sending
   the principal to the owner and the buffer to the beneficiary.
 
@@ -99,7 +103,7 @@ key can change the heirs.
 ## Signatures, relayers and replay
 
 - The signed message is the ABI encoding of the domain tag
-  `keccak256("Perennial.Action.v1")`, the chain id, the vault address, the
+  `keccak256("Perennial.Action")`, the chain id, the vault address, the
   position id, the action, the position's nonce, a deadline and a hash of the
   action's parameters. A signature is valid once, for one action, on one
   position of one vault on one chain, until its deadline.

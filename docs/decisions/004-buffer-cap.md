@@ -12,8 +12,9 @@ needs a small working balance, not an ever-growing one.
 
 ## Options
 
-1. **Leave the buffer unbounded** (version 1). Simple; idle money grows, and so
-   does what a compromised beneficiary key can reach.
+1. **Leave the buffer unbounded** (the earlier test deployments). Simple;
+   idle money grows, and so does what a compromised beneficiary key can
+   reach.
 2. **A per-position cap; what is above it joins the principal.** The excess
    keeps earning, and the exposure of the buffer is bounded by a number the
    owner chose.
@@ -34,7 +35,8 @@ Option 2.
 - Payouts are taken first and compounding comes last, so a cap of zero
   means "compound everything that is not paid out" and the scheduled payout
   is still paid in full when the buffer can fund it.
-- `type(uint256).max` means never compound, which is version 1's behaviour.
+- `type(uint256).max` means never compound, which is how the earlier test
+  deployments behaved.
 - `closeByOwner` does not compound: it harvests and returns everything.
 
 The rule in one sentence, for the app: *yield above the buffer cap is added
