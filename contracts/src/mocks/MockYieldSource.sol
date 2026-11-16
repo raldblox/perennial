@@ -11,7 +11,8 @@ import {IYieldSource} from "../interfaces/IYieldSource.sol";
 /// @dev The share price grows at `RATE_PER_YEAR` and compounds whenever the source is touched.
 ///      The yield is not earned anywhere: it is paid from tokens that someone sent to this
 ///      contract in advance (`fund`). If that reserve runs out, redemptions revert until it
-///      is refilled. Do not use this to hold anything of value.
+///      is refilled. Whoever deployed it can take back reserve that no depositor is owed.
+///      Do not use this to hold anything of value.
 contract MockYieldSource is IYieldSource {
     using SafeERC20 for IERC20;
 
@@ -21,6 +22,8 @@ contract MockYieldSource is IYieldSource {
     IERC20 private immutable _asset;
     /// @notice Yearly rate as an 18-decimal fraction: 0.05e18 is 5%.
     uint256 public immutable RATE_PER_YEAR;
+    /// @notice May take back reserve beyond what depositors are owed (`reclaim`).
+    address public immutable FUNDER;
 
     uint256 private _index = WAD;
     uint256 private _lastAccrual;
@@ -37,13 +40,16 @@ contract MockYieldSource is IYieldSource {
         uint256 shares
     );
     event Funded(address indexed from, uint256 assets);
+    event Reclaimed(address indexed to, uint256 assets);
 
     error NotShareOwner();
     error ReserveExhausted(uint256 needed, uint256 available);
+    error NotFunder();
 
     constructor(IERC20 asset_, uint256 ratePerYear_) {
         _asset = asset_;
         RATE_PER_YEAR = ratePerYear_;
+        FUNDER = msg.sender;
         _lastAccrual = block.timestamp;
     }
 
@@ -73,6 +79,25 @@ contract MockYieldSource is IYieldSource {
     function fund(uint256 assets) external {
         _asset.safeTransferFrom(msg.sender, address(this), assets);
         emit Funded(msg.sender, assets);
+    }
+
+    /// @notice Reserve beyond what all shares are worth now, rounded so it never undershoots.
+    function surplus() public view returns (uint256) {
+        uint256 owed = Math.mulDiv(totalSupply, index(), WAD, Math.Rounding.Ceil);
+        uint256 held = _asset.balanceOf(address(this));
+        return held > owed ? held - owed : 0;
+    }
+
+    /// @notice Take back up to `assets` of the reserve no depositor is owed. Only the deployer.
+    /// @dev Yield keeps accruing, so what is owed grows; reclaiming everything leaves later
+    ///      redemptions short until the reserve is refilled.
+    function reclaim(uint256 assets, address to) external {
+        if (msg.sender != FUNDER) revert NotFunder();
+        _accrue();
+        uint256 available = surplus();
+        if (assets > available) revert ReserveExhausted(assets, available);
+        _asset.safeTransfer(to, assets);
+        emit Reclaimed(to, assets);
     }
 
     function deposit(uint256 assets, address receiver) external returns (uint256 shares) {

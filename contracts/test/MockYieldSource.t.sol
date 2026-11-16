@@ -93,4 +93,40 @@ contract MockYieldSourceTest is Test {
 
         assertGe(source.convertToAssets(shares), assets);
     }
+
+    function test_reclaim_returnsOnlyWhatNoDepositorIsOwed() public {
+        vm.prank(alice);
+        source.deposit(10_000 * USD, alice);
+        skip(365 days);
+        uint256 surplus = source.surplus();
+        // 1,000,000 reserve, minus the 5% (500) the deposit has earned.
+        assertApproxEqAbs(surplus, 999_500 * USD, 1);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(MockYieldSource.ReserveExhausted.selector, surplus + 1, surplus)
+        );
+        source.reclaim(surplus + 1, address(this));
+
+        source.reclaim(surplus, address(this));
+        // Alice can still take everything she is owed.
+        uint256 shares = source.balanceOf(alice);
+        vm.prank(alice);
+        source.redeem(shares, alice, alice);
+        assertApproxEqAbs(token.balanceOf(alice), 10_500 * USD, 1);
+    }
+
+    function test_reclaim_isOnlyForTheDeployer() public {
+        vm.prank(alice);
+        vm.expectRevert(MockYieldSource.NotFunder.selector);
+        source.reclaim(1, alice);
+    }
+
+    function test_zeroRate_paysNothing() public {
+        MockYieldSource flat = new MockYieldSource(token, 0);
+        token.mint(address(this), 1_000 * USD);
+        token.approve(address(flat), type(uint256).max);
+        uint256 shares = flat.deposit(1_000 * USD, address(this));
+        skip(10 * 365 days);
+        assertEq(flat.convertToAssets(shares), 1_000 * USD);
+    }
 }
