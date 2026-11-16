@@ -38,6 +38,26 @@ contract Limited4626 is ERC4626 {
     }
 }
 
+/// @dev An ERC-4626 that refuses to redeem for zero assets, as Solmate's implementation does.
+contract Strict4626 is ERC4626 {
+    constructor(IERC20 asset_) ERC20("Strict vault", "SV") ERC4626(asset_) {}
+
+    /// Shares finer than one unit of the asset, so a harvest can find surplus shares worth
+    /// less than one unit.
+    function _decimalsOffset() internal pure override returns (uint8) {
+        return 6;
+    }
+
+    function redeem(uint256 shares, address receiver, address owner)
+        public
+        override
+        returns (uint256 assets)
+    {
+        require(previewRedeem(shares) != 0, "ZERO_ASSETS");
+        return super.redeem(shares, receiver, owner);
+    }
+}
+
 contract ERC4626SourceTest is VaultFixture {
     Plain4626 internal plain;
     ERC4626Source internal adapter;
@@ -201,5 +221,45 @@ contract ERC4626SourceTest is VaultFixture {
         uint256 out = adapter.redeem(shares, address(this), address(this));
         assertLe(out, assets + earned);
         assertGe(out + 2, assets + earned);
+    }
+
+    /// With a vault that refuses zero-asset redemptions, a harvest that finds only dust must
+    /// not revert, or claims, spends and the close would all be blocked.
+    function test_strictVault_dustHarvestDoesNotBlockTheClose() public {
+        Strict4626 strict = new Strict4626(token);
+        PerennialVault v = new PerennialVault(token, IYieldSource(address(strict)));
+        vm.prank(owner);
+        token.approve(address(v), type(uint256).max);
+        PerennialVault.OpenParams memory p = _params();
+        p.ownerCanClose = true;
+        vm.prank(owner);
+        uint256 id = v.open(p);
+        token.mint(address(strict), 1); // one unit of yield across all shares: dust per share
+
+        assertEq(v.harvest(id), 0);
+
+        uint256 before = token.balanceOf(owner);
+        uint256 deadline = _deadline();
+        uint256 nonce = v.position(id).nonce;
+        v.closeByOwner(
+            id,
+            deadline,
+            pqc.sign(
+                OWNER_SECRET, v.actionMessage(id, PerennialVault.Action.Close, nonce, deadline, 0)
+            )
+        );
+        assertGe(token.balanceOf(owner) - before, PRINCIPAL);
+    }
+
+    function test_adapter_writesOffDustWithoutCallingAStrictVault() public {
+        Strict4626 strict = new Strict4626(token);
+        ERC4626Source guarded = new ERC4626Source(IERC4626(address(strict)), token);
+        token.mint(address(this), 10 * USD);
+        token.approve(address(guarded), 10 * USD);
+        guarded.deposit(10 * USD, address(this));
+        // With six extra share decimals one share is worth far less than one unit: dust.
+        assertEq(strict.previewRedeem(1), 0);
+        assertEq(guarded.redeem(1, address(this), address(this)), 0);
+        assertEq(guarded.balanceOf(address(this)), 10 * USD * 1e6 - 1);
     }
 }

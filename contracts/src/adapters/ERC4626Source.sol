@@ -83,6 +83,12 @@ contract ERC4626Source is IYieldSource {
 
         balanceOf[owner] = balance - shares;
         totalSupply -= shares;
+        // Some ERC-4626 vaults refuse to redeem for zero assets; dust worth nothing is
+        // written off without a call and its vault shares stay here.
+        if (VAULT.previewRedeem(shares) == 0) {
+            emit Withdraw(msg.sender, receiver, owner, 0, shares);
+            return 0;
+        }
         assets = VAULT.redeem(shares, receiver, address(this));
         emit Withdraw(msg.sender, receiver, owner, assets, shares);
     }

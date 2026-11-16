@@ -667,6 +667,9 @@ contract PerennialVault is ReentrancyGuard {
         if (pos.shares <= keep) return 0;
 
         uint256 surplus = pos.shares - keep;
+        // Shares worth less than one unit stay put: some ERC-4626 vaults refuse to redeem
+        // for zero assets, and a revert here would block every claim, spend and close.
+        if (SOURCE.convertToAssets(surplus) == 0) return 0;
         pos.shares = keep;
 
         uint256 balanceBefore = ASSET.balanceOf(address(this));
