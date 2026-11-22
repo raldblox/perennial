@@ -39,10 +39,10 @@ async function unlock(user: ReturnType<typeof userEvent.setup>) {
 beforeEach(() => go("#/"));
 
 describe("overview", () => {
-  it("leads with the agent use case and its arithmetic", async () => {
+  it("leads with the budget and its limits", async () => {
     renderWith(<App />, fakeClient(state()));
-    expect(screen.getByRole("heading", { level: 1, name: "Deposit once. The yield pays your agent's calls." })).toBeInTheDocument();
-    expect(screen.getByText("1.06 calls an hour")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "A budget your agent cannot exceed and nobody can steal." })).toBeInTheDocument();
+    expect(screen.getByText("28.5 years")).toBeInTheDocument();
     // The calculator starts at 0%, this chain today: 500 fUSD at one 0.002 call an hour lasts 10,416.6 days.
     expect(screen.getByTestId("calc-result")).toHaveTextContent("10,416.6");
     await waitFor(() => expect(screen.getAllByText("Calls paid")[0]?.parentElement).toHaveTextContent("1"));

@@ -12,7 +12,7 @@ import type { Phase } from "./lib/schedule";
 
 export const brand = {
   name: "Perennial",
-  descriptor: "Deposit once. Its yield pays your agent's inference, call by call.",
+  descriptor: "A budget your agent cannot exceed and nobody can steal.",
   network: "Testnet",
 } as const;
 
@@ -43,26 +43,26 @@ export const vaultNames: Record<VaultId, { name: string; rate: string; note: str
 };
 
 export const hero = {
-  label: "QoreChain testnet · yields are simulated at reference rates",
-  headlineLines: ["Deposit once.", "The yield pays your agent's calls."],
-  headline: "Deposit once. The yield pays your agent's calls.",
+  label: "QoreChain testnet · ML-DSA-87 authorisation · yield optional, simulated",
+  headlineLines: ["A budget your agent cannot exceed", "and nobody can steal."],
+  headline: "A budget your agent cannot exceed and nobody can steal.",
   lede:
-    "At Aave v3 USDC's 4.29% (its 30-day mean on Ethereum, 16 November 2026), 500 fUSD pays for about one 0.002 fUSD inference call an hour, for as long as that rate holds. Your agent spends only what the deposit earns. The capital stays in the vault, and no classical key, stolen or recovered by a quantum computer, can move it.",
+    "The agent pays for each call with spend(), signed by its own ML-DSA-87 key and verified in the contract against the chain's key registry. In budget mode no more than payoutAmount leaves a position per payoutInterval, across spends and claims; a fuzz test and an invariant check that bound. A recovered secp256k1 key alone moves nothing. A stolen agent key takes at most one window's budget before the owner's signature closes the position. Yield, where a source pays one, only tops the budget up.",
   primary: "Fund an agent",
   secondary: "See a position",
   example: {
-    label: "The arithmetic",
+    label: "One 0.002 fUSD call an hour",
     deposit: "Deposit",
     depositValue: "500 fUSD",
-    rate: "Yield",
-    rateValue: "4.29% a year = 21.45 fUSD",
-    margin: "Margin 1.15",
-    marginValue: "18.65 fUSD spendable a year",
-    hourly: "Per hour",
-    hourlyValue: "0.00213 fUSD",
-    calls: "At 0.002 fUSD a call",
-    callsValue: "1.06 calls an hour",
-    note: "5,000 fUSD pays about ten an hour. Exactly one an hour needs about 470 fUSD. At 0%, the rate on QoreChain today, a deposit is spent instead: with budget mode, 500 fUSD pays one call an hour for about 10,400 days.",
+    rate: "Budget, budget mode",
+    rateValue: "1.46 fUSD a month",
+    margin: "Stolen agent key takes",
+    marginValue: "at most 1.46 fUSD a month",
+    hourly: "Recovered classical key takes",
+    hourlyValue: "0 fUSD",
+    calls: "Lasts at 0% yield",
+    callsValue: "28.5 years",
+    note: "At Aave v3 USDC's 4.29% (30-day mean, 16 November 2026) the same 500 fUSD earns 21.45 a year, more than the 17.52 the calls cost, so the budget never runs down. Nothing on QoreChain pays that yield today; the testnet vaults simulate it.",
   },
 } as const;
 
@@ -108,16 +108,16 @@ export const intervals = {
 
 export const why = {
   label: "Why",
-  title: "Your agent can pay its way without holding your money.",
+  title: "A wallet gives everything to whoever holds the key. A position does not.",
   body:
-    "An agent that calls a model needs to pay for every call. Giving it a funded wallet means giving it money it can lose. Perennial splits the roles so the agent never holds the capital.",
+    "An agent that calls a model has to pay per call. A funded wallet lets anyone with its key take the whole balance. A Perennial position splits the authority: the agent can spend within a budget, the owner can stop it, and heirs inherit if it goes silent. Every one of those actions needs an ML-DSA-87 signature.",
   roles: [
     { who: "You, the owner", what: "Deposit once, with a key you can keep offline. You may keep the right to close and take the capital back." },
-    { who: "Your agent, the beneficiary", what: "Has its own account and ML-DSA-87 key. It can spend the yield, call by call, and nothing else." },
+    { who: "Your agent, the beneficiary", what: "Has its own account and ML-DSA-87 key. It can spend within the budget, call by call, and nothing else." },
     { who: "Your heirs", what: "If the agent stops working, its income passes to them, for example back to you." },
   ],
   worstCase:
-    "If the agent's key is stolen, the most it can take is what the buffer holds at that moment, which the buffer cap bounds. Never the capital.",
+    "If the agent's ML-DSA-87 key is stolen, the thief can take what the buffer holds or, in budget mode, one window's budget, until the owner closes. A recovered classical key alone can take nothing.",
 } as const;
 
 export const how = {
