@@ -21,3 +21,12 @@ createRoot(container).render(
     </Providers>
   </StrictMode>,
 );
+
+// Installable and openable offline; chain reads are never served from the cache (public/sw.js).
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {
+      // The app works the same without it.
+    });
+  });
+}

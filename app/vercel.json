@@ -5,8 +5,50 @@
   "buildCommand": "pnpm build",
   "outputDirectory": "dist",
   "rewrites": [
-    { "source": "/qore/rest/:path*", "destination": "https://api-testnet.qore.host/:path*" },
-    { "source": "/qore/rpc/:path*", "destination": "https://rpc-testnet.qore.host/:path*" },
-    { "source": "/qore/rpc", "destination": "https://rpc-testnet.qore.host/" }
+    {
+      "source": "/qore/rest/:path*",
+      "destination": "https://api-testnet.qore.host/:path*"
+    },
+    {
+      "source": "/qore/rpc/:path*",
+      "destination": "https://rpc-testnet.qore.host/:path*"
+    },
+    {
+      "source": "/qore/rpc",
+      "destination": "https://rpc-testnet.qore.host/"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/sw.js",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache"
+        },
+        {
+          "key": "Service-Worker-Allowed",
+          "value": "/"
+        }
+      ]
+    },
+    {
+      "source": "/manifest.webmanifest",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/manifest+json"
+        }
+      ]
+    },
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    }
   ]
 }

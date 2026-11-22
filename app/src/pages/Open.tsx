@@ -157,7 +157,6 @@ export function Open({ vaultId }: { vaultId: VaultId }) {
     <div className="page">
       <section className="section" aria-labelledby="open-title">
         <div className="section-head">
-          <p className="label">{copy.label}</p>
           <h1 id="open-title" style={{ fontSize: "var(--size-h2)" }}>
             {copy.title}
           </h1>

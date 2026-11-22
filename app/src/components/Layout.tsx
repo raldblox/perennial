@@ -57,6 +57,8 @@ export function Layout({ route, children }: { route: Route; children: ReactNode 
             <NavLink to={{ name: "positions", vault: config.defaultVault }} current={route.name === "positions" || route.name === "position"}>
               {nav.positions}
             </NavLink>
+          </nav>
+          <div className="site-account">
             {account ? (
               <span className="row small" style={{ gap: "var(--space-2)" }}>
                 <span className="mono" title={account.evm}>
@@ -67,11 +69,14 @@ export function Layout({ route, children }: { route: Route; children: ReactNode 
                 </button>
               </span>
             ) : (
-              <button type="button" className="button small quiet" onClick={() => setUnlocking(true)}>
-                {accountCopy.unlock}
+              <button type="button" className="button small quiet" onClick={() => setUnlocking(true)} aria-label={accountCopy.unlock}>
+                <span className="wide-only">{accountCopy.unlock}</span>
+                <span className="narrow-only" aria-hidden="true">
+                  {accountCopy.unlockShort}
+                </span>
               </button>
             )}
-          </nav>
+          </div>
         </div>
       </header>
       {wrongNetwork || mismatch ? (

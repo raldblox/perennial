@@ -54,7 +54,7 @@ export const hero = {
     label: "One 0.002 fUSD inference call an hour",
     deposit: "Deposit",
     depositValue: "500 fUSD",
-    rate: "Budget, budget mode",
+    rate: "Spending limit",
     rateValue: "1.46 fUSD a month",
     margin: "Stolen agent key takes",
     marginValue: "at most 1.46 fUSD a month",
@@ -275,6 +275,7 @@ export const common = {
 
 export const account = {
   unlock: "Unlock an account",
+  unlockShort: "Unlock",
   lock: "Lock",
   locked: "No account unlocked. Reading needs none.",
   unlocked: "Account unlocked",
@@ -369,7 +370,7 @@ export const fund = {
   label: "Fund an agent",
   title: "Fund your agent's inference",
   intro:
-    "Your deposit becomes the principal and is never spent. Its yield pays your agent's calls. Pick the agent, how often it calls, and what a call costs.",
+    "Your deposit is your agent's budget. The agent spends it call by call with its own key, never more than the limit you set. Pick the agent, how often it calls and what a call costs; turn on budget mode to let it spend the deposit itself when there is no yield.",
   steps: ["Agent and deposit", "Heirs", "Review"],
   vault: "Vault",
   vaultHint: "The demo vault's rate is an accelerated test setting, not a return.",
@@ -382,7 +383,7 @@ export const fund = {
   suggested: (deposit: string) => `At this vault's rate and a 1.15 margin, that needs ${deposit} fUSD.`,
   useSuggested: "Use this deposit",
   amount: "Deposit",
-  amountHint: "Becomes the principal. Never spent.",
+  amountHint: "The budget. Without budget mode only its yield and income can be spent.",
   pays: (calls: string, perMinute: string) => `This deposit pays about ${calls} ${calls === "1" ? "call" : "calls"} an hour (${perMinute} a minute) at this price.`,
   balance: "Balance",
   useMax: "Use all",
@@ -561,7 +562,7 @@ export const panel = {
   controls: "Controls",
   controlsLocked: "Unlock an account to act. Harvest, trigger succession and distribute work from any account; the others need the role holder's signature.",
   topUp: "Add principal",
-  topUpHint: "Anyone can add principal. It is never spent.",
+  topUpHint: "Anyone can add to the deposit, including revenue from elsewhere.",
   fund: "Pay income",
   fundHint: "Anyone can pay into the buffer, for example a customer paying the agent. Above the cap it joins the principal.",
   spend: "Send a payment",

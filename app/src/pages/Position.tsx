@@ -96,7 +96,7 @@ export function PositionPage({ vaultId, id }: { vaultId: VaultId; id: bigint }) 
     const missing = /UnknownPosition/.test(`${explained.detail ?? ""} ${String(position.error)}`);
     return (
       <div className="page section stack">
-        <p className="label">{copy.label(id.toString())}</p>
+        <h1 style={{ fontSize: "var(--size-h2)" }}>{copy.label(id.toString())}</h1>
         <Notice tone={missing ? "warn" : "danger"} title={missing ? copy.notFound(id.toString()) : explained.message}>
           {!missing ? (
             <button type="button" className="link-button" onClick={() => void position.refetch()}>
@@ -131,13 +131,15 @@ export function PositionPage({ vaultId, id }: { vaultId: VaultId; id: bigint }) 
     <div className="page">
       <section className="section" aria-labelledby="position-title">
         <div className="stack" style={{ marginBottom: "var(--space-6)" }}>
-          <p className="label">
-            {vaultNames[vault.id].name} · {vaultNames[vault.id].rate}
-          </p>
           <div className="row" style={{ justifyContent: "space-between", alignItems: "baseline" }}>
-            <h1 id="position-title" style={{ fontSize: "var(--size-h2)" }}>
-              {copy.label(id.toString())}
-            </h1>
+            <div className="stack" style={{ gap: "var(--space-1)" }}>
+              <h1 id="position-title" style={{ fontSize: "var(--size-h2)" }}>
+                {copy.label(id.toString())}
+              </h1>
+              <p className="small muted">
+                {vaultNames[vault.id].name} · {vaultNames[vault.id].rate}
+              </p>
+            </div>
             <Status tone={PHASE_TONE[line.phase]}>{phases[line.phase].name}</Status>
           </div>
           <p className="muted">{phases[line.phase].detail}</p>

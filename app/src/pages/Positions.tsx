@@ -113,7 +113,6 @@ export function Positions({ vaultId, address }: { vaultId: VaultId; address?: st
     <div className="page">
       <section className="section" aria-labelledby="positions-title">
         <div className="section-head">
-          <p className="label">{copy.label}</p>
           <h1 id="positions-title" style={{ fontSize: "var(--size-h2)" }}>
             {copy.title}
           </h1>

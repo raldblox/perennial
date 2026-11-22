@@ -253,9 +253,53 @@ main:focus {
 
 .site-nav {
   display: flex;
-  gap: var(--space-4);
-  flex-wrap: wrap;
+  gap: var(--space-5);
   align-items: center;
+}
+
+.site-account {
+  display: flex;
+  align-items: center;
+}
+
+.narrow-only {
+  display: none;
+}
+
+@media (max-width: 29.99rem) {
+  .wide-only {
+    display: none;
+  }
+
+  .narrow-only {
+    display: inline;
+  }
+}
+
+/* On a phone: the wordmark and the account share the first row; the
+   navigation gets a full-width row of its own and scrolls if it must. */
+@media (max-width: 47.99rem) {
+  .site-header .page {
+    row-gap: 0;
+  }
+
+  .site-nav {
+    order: 3;
+    width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .site-nav a {
+    white-space: nowrap;
+    padding: var(--space-3) 0;
+  }
+}
+
+@media (min-width: 48rem) {
+  .site-nav {
+    margin-left: auto;
+  }
 }
 
 .site-nav a {
@@ -272,7 +316,7 @@ main:focus {
 
 .site-nav a[aria-current="page"] {
   color: var(--ink);
-  border-bottom-color: var(--ink);
+  border-bottom: 2px solid var(--accent);
 }
 
 .site-footer {

@@ -13,6 +13,7 @@
  *   public/favicon.svg            the mark, following the colour scheme
  *   public/favicon.png            64 x 64
  *   public/apple-touch-icon.png   180 x 180
+ *   public/icon-192.png, icon-512.png, icon-maskable-512.png   the installed app's icons
  */
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -209,11 +210,12 @@ async function png(node: Node, width: number, height: number): Promise<Buffer> {
   return new Resvg(svg, { fitTo: { mode: "width", value: width } }).render().asPng();
 }
 
-function iconNode(size: number): Node {
+function iconNode(size: number, maskable = false): Node {
+  // A maskable icon fills the square and keeps the mark inside the central 80% safe zone.
   return h(
     "div",
-    { width: size, height: size, display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: color("paper"), borderRadius: size * 0.18 },
-    markSvg(color("accent"), size * 0.78),
+    { width: size, height: size, display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: color("paper"), borderRadius: maskable ? 0 : size * 0.18 },
+    markSvg(color("accent"), size * (maskable ? 0.56 : 0.78)),
   );
 }
 
@@ -239,6 +241,9 @@ async function main(): Promise<void> {
   write(resolve(app, "public/favicon.svg"), faviconSvg());
   write(resolve(app, "public/favicon.png"), await png(iconNode(64), 64, 64));
   write(resolve(app, "public/apple-touch-icon.png"), await png(iconNode(180), 180, 180));
+  write(resolve(app, "public/icon-192.png"), await png(iconNode(192), 192, 192));
+  write(resolve(app, "public/icon-512.png"), await png(iconNode(512), 512, 512));
+  write(resolve(app, "public/icon-maskable-512.png"), await png(iconNode(512, true), 512, 512));
 }
 
 main().catch((error: unknown) => {
