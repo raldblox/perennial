@@ -12,7 +12,7 @@ import type { Phase } from "./lib/schedule";
 
 export const brand = {
   name: "Perennial",
-  descriptor: "A budget your agent cannot exceed and nobody can steal.",
+  descriptor: "An inference budget your agent spends and nobody can steal.",
   network: "Testnet",
 } as const;
 
@@ -44,14 +44,14 @@ export const vaultNames: Record<VaultId, { name: string; rate: string; note: str
 
 export const hero = {
   label: "QoreChain testnet · ML-DSA-87 authorisation · yield optional, simulated",
-  headlineLines: ["A budget your agent cannot exceed", "and nobody can steal."],
-  headline: "A budget your agent cannot exceed and nobody can steal.",
+  headlineLines: ["An inference budget your agent spends", "and nobody can steal."],
+  headline: "An inference budget your agent spends and nobody can steal.",
   lede:
-    "The agent pays for each call with spend(), signed by its own ML-DSA-87 key and verified in the contract against the chain's key registry. In budget mode no more than payoutAmount leaves a position per payoutInterval, across spends and claims; a fuzz test and an invariant check that bound. A recovered secp256k1 key alone moves nothing. A stolen agent key takes at most one window's budget before the owner's signature closes the position. Yield, where a source pays one, only tops the budget up.",
+    "Your agent pays for each model call with spend(), signed by its own ML-DSA-87 key and verified in the contract, inside a limit it cannot exceed: in budget mode at most payoutAmount per payoutInterval, a bound a fuzz test and an invariant check. A recovered classical key moves nothing; a stolen agent key spends only within the limit until you, the owner, close the position. Connected to a yield vault, the budget refills itself and lasts indefinitely when the yield covers the spend.",
   primary: "Fund an agent",
   secondary: "See a position",
   example: {
-    label: "One 0.002 fUSD call an hour",
+    label: "One 0.002 fUSD inference call an hour",
     deposit: "Deposit",
     depositValue: "500 fUSD",
     rate: "Budget, budget mode",
@@ -60,9 +60,9 @@ export const hero = {
     marginValue: "at most 1.46 fUSD a month",
     hourly: "Recovered classical key takes",
     hourlyValue: "0 fUSD",
-    calls: "Lasts at 0% yield",
-    callsValue: "28.5 years",
-    note: "At Aave v3 USDC's 4.29% (30-day mean, 16 November 2026) the same 500 fUSD earns 21.45 a year, more than the 17.52 the calls cost, so the budget never runs down. Nothing on QoreChain pays that yield today; the testnet vaults simulate it.",
+    calls: "Lasts at 0% / 4.29% yield",
+    callsValue: "28.5 years / indefinitely",
+    note: "At Aave v3 USDC's 4.29% (30-day mean on Ethereum, 16 November 2026) the same 500 fUSD earns 21.45 fUSD a year against 17.52 spent, so the budget refills faster than the agent spends it. Nothing on QoreChain pays that yield today; the testnet vaults simulate it.",
   },
 } as const;
 
@@ -110,7 +110,7 @@ export const why = {
   label: "Why",
   title: "A wallet gives everything to whoever holds the key. A position does not.",
   body:
-    "An agent that calls a model has to pay per call. A funded wallet lets anyone with its key take the whole balance. A Perennial position splits the authority: the agent can spend within a budget, the owner can stop it, and heirs inherit if it goes silent. Every one of those actions needs an ML-DSA-87 signature.",
+    "An agent that calls a model has to pay per call. A funded wallet lets anyone with its key take the whole balance. A Perennial position splits the authority: the agent spends within a limit, the owner funds it and can stop it, and if the agent goes silent the budget passes to its heirs. Every one of those actions needs an ML-DSA-87 signature.",
   roles: [
     { who: "You, the owner", what: "Deposit once, with a key you can keep offline. You may keep the right to close and take the capital back." },
     { who: "Your agent, the beneficiary", what: "Has its own account and ML-DSA-87 key. It can spend within the budget, call by call, and nothing else." },

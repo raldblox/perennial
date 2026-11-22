@@ -8,7 +8,7 @@ import { Positions } from "./pages/Positions";
 import { href, useRoute } from "./router";
 
 const TITLES = {
-  overview: "Perennial · A budget your agent cannot exceed and nobody can steal",
+  overview: "Perennial · An inference budget your agent spends and nobody can steal",
   open: "Fund an agent · Perennial",
   positions: "Positions · Perennial",
   "not-found": "Not found · Perennial",
