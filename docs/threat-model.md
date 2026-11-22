@@ -181,6 +181,18 @@ page, so the app derives the keys from a recovery phrase typed into the page
   exposing the swap to a worse price. The page caps a swap at 1 QOR and
   shows the minimum before signing.
 
+## Cryptographic inventory
+
+What the contracts rely on, by primitive. A machine-readable CycloneDX CBOM
+of `contracts/src` is produced by QoreScan in CI ([docs/cbom](cbom/README.md)).
+
+| Primitive | Where | Role |
+|---|---|---|
+| ML-DSA-87 (FIPS 204) | `pqcVerify` precompile (`0x0A01`), called from `PQCAuth` | every signed action: spend, claim, check-in, heir changes, close |
+| ML-DSA-87 key registry | `pqcKeyStatus` precompile (`0x0A02`) | the signer's key, algorithm id 1, possession proven |
+| Keccak-256 | `actionMessage`, `paramsHash`, the domain tag | binds a signature to chain, vault, position, action, nonce, deadline and parameters |
+| secp256k1 ECDSA | the EVM transaction envelope only | pays the fee; authorises nothing in the vault (`ecrecover` is not used) |
+
 ## Known limitations
 
 - Testnet only. The precompiles are not active on QoreChain mainnet.

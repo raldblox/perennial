@@ -1,0 +1,36 @@
+name: cbom
+
+# A CycloneDX 1.6 cryptographic bill of materials (CBOM) of the contracts and
+# the deployer account's key status, from QoreScan Community. The action builds
+# QoreScan from source at the pinned commit; nothing is downloaded and run.
+# The committed copy is docs/cbom/contracts.cbom.json; refresh it from the
+# artifact of a run (or `pnpm cbom` in contracts/).
+
+on:
+  push:
+    branches: [main]
+    paths: ["contracts/src/**", ".github/workflows/cbom.yml"]
+  pull_request:
+    paths: ["contracts/src/**", ".github/workflows/cbom.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cbom:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - id: qorescan
+        # QoreScan Community v0.1.0
+        uses: qorechain/qorescan@e87a5372bf2d452b47f001996828148dc592eab1
+        with:
+          solidity: contracts/src
+          network: testnet
+          addresses: qor1sfwzuq5zc35pltf0n863f57nqq7dyapj6gqlyg
+          out: contracts.cbom.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cbom
+          path: ${{ steps.qorescan.outputs.cbom }}

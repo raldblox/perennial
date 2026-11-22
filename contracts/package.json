@@ -15,7 +15,8 @@
     "deploy:testnet": "forge script script/Deploy.s.sol:Deploy --rpc-url qorechain_testnet --broadcast --slow --skip-simulation",
     "e2e": "tsx --env-file=.env scripts/e2e.ts",
     "typecheck": "tsc --noEmit",
-    "swap": "tsx --env-file=.env scripts/swap.ts"
+    "swap": "tsx --env-file=.env scripts/swap.ts",
+    "cbom": "qorescan solidity src --out ../docs/cbom/contracts.cbom.json"
   },
   "dependencies": {
     "@cosmjs/stargate": "^0.39.0",
@@ -25,6 +26,7 @@
     "viem": "^2.0.0"
   },
   "devDependencies": {
+    "@qorechain/qorescan": "0.1.0",
     "@types/node": "^22.7.5",
     "create-qorechain-dapp": "^0.14.0",
     "tsx": "^4.19.0",
