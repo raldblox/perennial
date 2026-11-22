@@ -11,8 +11,8 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `spend(positionId, to, amount, ref, deadline, signature)`,
   a beneficiary-signed payment from the buffer with `Spent` indexed by
   `ref`, and a per-position buffer cap above which yield is compounded into
-  the principal (decisions 004 and 005). Deployed to the testnet with a 5%
-  source and an accelerated demo source; deployment record and compiler
+  the principal (decisions 004 and 005). Deployed to the testnet as three
+  vaults: no yield, simulated at the Aave v3 USDC rate, and accelerated; deployment record and compiler
   settings in `docs/deployments.md`.
 - Budget mode, an opt-in at open that lets `spend` and scheduled payouts
   draw on principal within `payoutAmount` per `payoutInterval`, and

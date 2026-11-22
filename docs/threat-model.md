@@ -126,7 +126,7 @@ key can change the heirs.
 
 ## Yield source and mock risks
 
-- The testnet yield is simulated. `MockYieldSource` accrues 5% a year and pays
+- The testnet yield is simulated. `MockYieldSource` accrues a fixed rate (0, 4.29% or the accelerated demo rate) and pays
   it from a reserve someone funded. When the reserve is short, redemptions
   revert with `ReserveExhausted`, and harvest, claim and close revert with
   them. The app shows the reserve left.

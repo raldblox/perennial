@@ -129,15 +129,15 @@ function composition(width: number, height: number): Node {
       h(
         "div",
         { fontSize: 33 * s, lineHeight: 1.45, color: color("ink-2"), maxWidth: 1440 * s },
-        "The capital stays in the vault. Your agent spends only what it earns, with its own ML-DSA-87 key, so a stolen classical key moves nothing. Testnet: the 5% is simulated.",
+        "The capital stays in the vault. Your agent spends only what it earns, with its own ML-DSA-87 key, so a stolen classical key moves nothing. Testnet: yield simulated at a reference rate.",
       ),
     ),
     h(
       "div",
       { display: "flex", borderTop: `${Math.max(1, 2 * s)}px solid ${color("rule-strong")}` },
       figure("Deposit", "500", "fUSD, never spent", s),
-      figure("Pays", "1.24", "calls an hour", s),
-      figure("Per call", "0.002", "fUSD, 5% a year, 1.15 margin", s),
+      figure("Pays", "1.06", "calls an hour", s),
+      figure("Per call", "0.002", "fUSD, at Aave v3 USDC 4.29%", s),
       figure("Signatures", "ML-DSA-87", "checked in contract", s),
     ),
   );

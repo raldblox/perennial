@@ -48,8 +48,10 @@ contract can collect.** Every live source is on the native lane.
   mint no shares (the donation or rounding loss on a small or manipulated
   vault), checks `maxDeposit` and `maxRedeem` and fails with clear errors, and
   fixes the asset at deployment. It adds no yield.
-- Keep the testnet on `MockYieldSource`, said plainly everywhere: the 5% is
-  simulated and paid from a pre-funded reserve.
+- Keep the testnet on `MockYieldSource`, said plainly everywhere: its rate
+  is simulated and paid from a pre-funded reserve. One vault's source pays
+  nothing, as QoreChain does today; another is simulated at a real reference
+  rate (Aave v3 USDC's 30-day mean, decision 008), never a return it earns.
 - Deploy a second vault on a mock with an **accelerated testnet rate**, so a
   small deposit visibly pays several calls a minute in a demonstration. It is
   labelled as accelerated on every screen that shows it and is never

@@ -13,10 +13,18 @@
 Perennial is a vault for an endowment with a living beneficiary. You deposit
 fUSD once; it becomes the principal and is never spent. What it earns lands
 in a buffer, and the beneficiary, typically an AI agent with its own account,
-pays from that buffer for each model call it makes. **500 fUSD at 5% a year
-pays for one 0.002 fUSD call every hour, for as long as the 5% holds** (1.24
-an hour, exactly; 5,000 fUSD pays about twelve). On the QoreChain testnet,
-where this runs, the 5% is simulated.
+pays from that buffer for each model call it makes. **At Aave v3 USDC's
+4.29% (its 30-day mean on Ethereum, 16 November 2026), 500 fUSD pays for
+about one 0.002 fUSD call an hour, for as long as that rate holds** (1.06 an
+hour; 5,000 fUSD pays about ten). Nothing on QoreChain pays a yield today, so
+there the assumption is 0%: with budget mode the deposit itself pays the
+calls, and 500 fUSD lasts about 10,400 days at one call an hour. On the
+testnet, every yield is simulated.
+
+Reference rates, 30-day means on Ethereum from DefiLlama's yields API on
+16 November 2026 (`pnpm rates` in `app/` prints the current ones):
+Sky savings (sUSDS) 3.80%, Aave v3 USDC supply 4.29%, Ethena sUSDe 5.06%.
+These reference rates are paid on other chains, vary, and carry their protocols' risks; they are the planning assumption for a later deployment on a chain where such vaults exist, which is what the ERC-4626 and Aave adapters are for.
 
 ## Why
 
@@ -63,7 +71,8 @@ flowchart LR
 
 **Sizing.** For `C` a year of calls at yield rate `r`, deposit
 `P = k · C / r` with a margin `k` (1.15 lets the yield fall 13% before calls
-go unpaid). One 0.002 call an hour is 17.52 a year, so `P` is 402.96 at 5%.
+go unpaid). One 0.002 call an hour is 17.52 a year, so `P` is about 470 at
+Aave v3 USDC's 4.29%, about 530 at sUSDS's 3.80% and about 398 at sUSDe's 5.06%.
 
 ### Who can do what
 
@@ -88,16 +97,16 @@ against is in the [threat model](docs/threat-model.md).
 ## Other uses
 
 The same vault pays people on a schedule: a public good's fixed bill (10 a
-month needs 2,760), a maintainer's stipend (100 a month, 27,600), a parent's
-allowance passing to the children (250 a month, 69,000). Each at 5% with a
-1.15 margin.
+month needs 3,217), a maintainer's stipend (100 a month, 32,168), a parent's
+allowance passing to the children (250 a month, 80,420). Each at Aave v3
+USDC's 4.29% with a 1.15 margin.
 
 ## Status
 
 | Part | State |
 |---|---|
 | Contracts | One `PerennialVault` with `spend`, the buffer cap, opt-in budget mode and `fund`; 179 tests including fuzz and invariant tests, and optional fork tests against real sources; adapters for ERC-4626 vaults and Aave V3 markets |
-| Testnet | Deployed on `qorechain-diana` as three vaults: no yield, a simulated 5% and an accelerated demo rate; earlier test deployments are retired |
+| Testnet | Deployed on `qorechain-diana` as three vaults: no yield, one simulated at the Aave v3 USDC rate of 16 November 2026, and an accelerated demo rate; earlier test deployments are retired |
 | Web app | Fund an agent, budget mode, income paid in, a control panel per position with how long it lasts, an in-page QOR to fUSD swap |
 | Review | Not audited. The first AI review is answered finding by finding in [docs/AUDIT.md](docs/AUDIT.md) |
 
@@ -125,7 +134,7 @@ are in [docs/deployments.md](docs/deployments.md).
 | What | Address |
 |---|---|
 | PerennialVault, no yield (its source pays nothing) | `0x76DAC5461fF361f911e5F39810c9455a6180C180` |
-| PerennialVault, 5% a year (simulated) | `0x5BB20552043Df7bC9df11d80BE4Ff024a67c2b16` |
+| PerennialVault, simulated at the Aave v3 USDC rate of 16 November 2026 (4.29%, never a return it earns) | `0x78075C631D41AF72c69e34120d5C33cDC7A66A71` |
 | PerennialVault, accelerated testnet rate (simulated, not a return) | `0x496AAa4D585B97c8a26095D97Af4bBfAd473798c` |
 | Asset (fUSD) | `0x97143B771D34ddb9130b807b135Ae675A5a963CA` |
 | Deployer | `0x825c2e0282c4681fad2f99F514d3D3003cd27432` (`qor1sfwzuq5zc35pltf0n863f57nqq7dyapj6gqlyg`) |
