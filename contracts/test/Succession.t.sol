@@ -61,7 +61,7 @@ contract SuccessionTest is VaultFixture {
         vault.triggerSuccession(id);
     }
 
-    /// A check-in during the grace period, before anyone triggers, keeps the pension.
+    /// A check-in during the grace period, before anyone triggers, keeps the position with its beneficiary.
     function test_lateCheckIn_preventsSuccession() public {
         uint256 id = _open();
         skip(CHECK_IN_PERIOD + GRACE_PERIOD / 2);

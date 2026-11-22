@@ -4,11 +4,11 @@ Status: accepted · 15 November 2026
 
 ## Context
 
-A pension has to outlive the cryptography it started with. On QoreChain an
+A budget an agent spends for years has to outlive the cryptography it started with. On QoreChain an
 account sends EVM transactions under an authorisation window that was opened
 with its post-quantum key, but inside that window the classical secp256k1 key
 alone decides what happens. If Perennial trusted `msg.sender`, a recovered
-classical key could redirect a pension for as long as a window is open.
+classical key could redirect a position for as long as a window is open.
 
 The chain exposes two precompiles to Solidity: `pqcKeyStatus`, which returns
 an account's registered ML-DSA-87 key, and `pqcVerify`, which checks a
@@ -59,11 +59,11 @@ no window open.
 
 **Which are not.** `open` and `topUp` only move the caller's own tokens in.
 `harvest`, `triggerSuccession` and `distribute` are permissionless by design:
-they cannot change where money goes, and the pension must keep working when
+they cannot change where money goes, and the position must keep working when
 nobody with a key is around.
 
 **Keys are read, never stored.** If the beneficiary rotates their key on
-chain, the pension follows.
+chain, the position follows.
 
 **Fail closed.** If a precompile returns empty data (inactive, or a chain
 without it), the action reverts.

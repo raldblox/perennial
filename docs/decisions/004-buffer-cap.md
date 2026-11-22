@@ -7,7 +7,7 @@ Status: accepted · 16 November 2026
 Harvested yield waits in a position's buffer until it is paid out. Whatever
 is not paid out sits idle: it earns nothing, and it is exactly what a stolen
 beneficiary key could take once the beneficiary can spend from the buffer
-([decision 005](005-spend.md)). An endowment that pays an agent call by call
+([decision 005](005-spend.md)). A position that pays an agent call by call
 needs a small working balance, not an ever-growing one.
 
 ## Options
