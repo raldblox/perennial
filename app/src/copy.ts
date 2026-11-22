@@ -82,6 +82,7 @@ export const agentCalc = {
   preset: (name: string, percent: string) => `${name} ${percent}%`,
   presetSource: (source: string, date: string) =>
     `Reference rates are 30-day means on Ethereum from ${source}, ${date}. They vary and carry their protocols' risks; the testnet vaults only simulate them.`,
+  sourceLink: "Source data",
   resultForever: "Lasts indefinitely",
   resultLasts: "The budget lasts",
   years: "years",

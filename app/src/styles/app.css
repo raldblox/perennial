@@ -391,6 +391,14 @@ main:focus {
 .field {
   display: grid;
   gap: var(--space-2);
+  align-content: start;
+  min-width: 0;
+}
+
+fieldset.field {
+  border: 0;
+  margin: 0;
+  padding: 0;
 }
 
 .field label,
@@ -466,42 +474,157 @@ textarea {
   accent-color: var(--accent);
 }
 
+/* Tabs: an underline marks the current one; no filled blocks. */
 .segmented {
-  display: inline-flex;
-  border: 1px solid var(--rule);
-  border-radius: var(--radius);
+  display: flex;
   flex-wrap: wrap;
+  gap: 0 var(--space-5);
+  border-bottom: 1px solid var(--rule);
 }
 
-.segmented button {
+.segmented button,
+.segmented .segment {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink-3);
+  font: inherit;
+  font-size: var(--size-small);
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.segmented button:hover,
+.segmented .segment:hover {
+  color: var(--ink);
+}
+
+.segmented button::after,
+.segmented .segment::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 -1px 0;
+  height: 2px;
+  background: transparent;
+  transition: background-color 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.segmented button[aria-pressed="true"],
+.segmented .segment[aria-current="page"] {
+  color: var(--ink);
+}
+
+.segmented button[aria-pressed="true"]::after,
+.segmented .segment[aria-current="page"]::after {
+  background: var(--accent);
+}
+
+/* Calculator */
+.calc {
+  display: grid;
+  gap: var(--space-7);
+}
+
+.calc-inputs {
+  display: grid;
+  gap: var(--space-5);
+  align-content: start;
+}
+
+.calc-rates {
+  grid-column: 1 / -1;
+}
+
+.calc-result {
+  display: grid;
+  gap: var(--space-3);
+  align-content: start;
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--rule-strong);
+}
+
+.calc-figure {
+  font-size: var(--size-h1);
+  line-height: 1;
+}
+
+@media (min-width: 40rem) {
+  .calc-inputs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 64rem) {
+  .calc {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    gap: var(--space-8);
+  }
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
   min-height: 2.5rem;
   padding: 0 var(--space-4);
-  border: 0;
+  border: 1px solid color-mix(in srgb, var(--ink-3) 55%, transparent);
+  border-radius: 999px;
   background: transparent;
   color: var(--ink-2);
   font: inherit;
   font-size: var(--size-small);
+  font-variant-numeric: tabular-nums lining-nums;
   cursor: pointer;
+  transition:
+    border-color 160ms cubic-bezier(0.16, 1, 0.3, 1),
+    color 160ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.segmented .segment {
-  display: inline-flex;
-  align-items: center;
-  min-height: 2.5rem;
-  padding: 0 var(--space-4);
-  color: var(--ink-2);
-  font-size: var(--size-small);
-  text-decoration: none;
+.chip:hover {
+  border-color: var(--ink-3);
+  color: var(--ink);
 }
 
-.segmented .segment[aria-current="page"] {
-  background: var(--ink);
-  color: var(--paper);
+.chip[aria-pressed="true"],
+.chip.is-active {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+  color: var(--ink);
 }
 
-.segmented button[aria-pressed="true"] {
-  background: var(--ink);
-  color: var(--paper);
+.chip-input {
+  padding-right: var(--space-3);
+  cursor: text;
+}
+
+.chip-input input {
+  width: 4.5rem;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: right;
+}
+
+.chip-input input:focus {
+  outline: none;
+}
+
+.chip-input:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* Figures */

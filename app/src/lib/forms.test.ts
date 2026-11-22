@@ -61,34 +61,40 @@ describe("validateTerms", () => {
 });
 
 describe("computeAgentSizing", () => {
-  it("sizes a deposit from calls an hour and a price", () => {
-    // At Aave v3 USDC's 30-day mean, 4.29%.
-    expect(computeAgentSizing({ mode: "deposit", calls: "1", deposit: "", price: "0.002", rate: "4.29", margin: "1.15" })).toEqual({
-      deposit: 469_650_350n,
-      callsPerHourX100: 100n,
-      price: 2_000n,
-      yearly: 17_520_000n,
-      lastsDaysX100: null,
-    });
+  const base = { calls: "1", price: "0.002", deposit: "500", rate: "0" };
+
+  it("at 0% spends the deposit: 500 fUSD at one 0.002 call an hour lasts 28.5 years", () => {
+    const result = computeAgentSizing(base);
+    expect(result?.yearlySpend).toBe(17_520_000n);
+    expect(result?.yearlyYield).toBe(0n);
+    expect(result?.depositForever).toBeNull();
+    expect(result?.duration.kind).toBe("days");
+    if (result?.duration.kind === "days") expect(result.duration.days).toBeCloseTo(10_416.67, 1);
   });
 
-  it("inverts: 500 fUSD at 4.29% pays 1.06 calls an hour", () => {
-    const result = computeAgentSizing({ mode: "calls", calls: "", deposit: "500", price: "0.002", rate: "4.29", margin: "1.15" });
-    expect(result?.callsPerHourX100).toBe(106n);
+  it("lasts indefinitely once the yield covers the spend", () => {
+    // At Aave v3 USDC's 30-day mean, 4.29%: 21.45 earned against 17.52 spent.
+    const result = computeAgentSizing({ ...base, rate: "4.29" });
+    expect(result?.yearlyYield).toBe(21_450_000n);
+    expect(result?.duration).toEqual({ kind: "forever" });
+    expect(result?.depositForever).toBe(469_650_350n);
   });
 
-  it("at 0% says how long the deposit lasts instead", () => {
-    // 500 fUSD at one 0.002 call an hour: 0.048 a day, 10,416.66 days.
-    const result = computeAgentSizing({ mode: "deposit", calls: "1", deposit: "500", price: "0.002", rate: "0", margin: "1.15" });
-    expect(result?.lastsDaysX100).toBe(1_041_666n);
+  it("with a partial yield lasts longer than at 0%", () => {
+    // Ten calls an hour cost 175.2 a year; 500 at 4.29% earns 21.45.
+    const result = computeAgentSizing({ ...base, calls: "10", rate: "4.29" });
+    expect(result?.duration.kind).toBe("days");
+    if (result?.duration.kind === "days") {
+      expect(result.duration.days).toBeGreaterThan((500 / 175.2) * 365);
+      expect(result.duration.days).toBeCloseTo(1_111.6, 0);
+    }
   });
 
-  it("refuses a margin under 1, a zero rate without a deposit, a zero price, and bad numbers", () => {
-    const base = { mode: "deposit" as const, calls: "1", deposit: "", price: "0.002", rate: "4.29", margin: "1.15" };
-    expect(computeAgentSizing({ ...base, margin: "0.9" })).toBeNull();
-    expect(computeAgentSizing({ ...base, rate: "0" })).toBeNull(); // 0% needs a deposit to say how long it lasts
+  it("refuses zero or bad inputs and rates over 100%", () => {
     expect(computeAgentSizing({ ...base, price: "0" })).toBeNull();
+    expect(computeAgentSizing({ ...base, deposit: "0" })).toBeNull();
     expect(computeAgentSizing({ ...base, calls: "x" })).toBeNull();
+    expect(computeAgentSizing({ ...base, rate: "101" })).toBeNull();
   });
 });
 

@@ -2,7 +2,7 @@ import { totals } from "../chain/events";
 import { AgentCalculator } from "../components/AgentCalculator";
 import { Amount, Figure, Notice } from "../components/ui";
 import { addressUrl, config, type VaultConfig } from "../config";
-import { agentCalc, faq, hero, how, live, loop, roles, simulated, uses, vaultNames, why } from "../copy";
+import { agentCalc, faq, hero, how, live, loop, roles, simulated, vaultNames, why } from "../copy";
 import { href } from "../router";
 import { usePrincipalHeld, useSourceReserve, useVaultEvents, useVaultInfo } from "../state/queries";
 
@@ -11,7 +11,6 @@ function Hero() {
     <section className="hero" aria-labelledby="hero-title">
       <div className="split">
         <div>
-          <p className="label">{hero.label}</p>
           <h1 id="hero-title" aria-label={hero.headline}>
             {hero.headlineLines.map((line) => (
               <span key={line}>{line}</span>
@@ -124,9 +123,22 @@ export function Landing() {
     <div className="page">
       <Hero />
 
+      <section className="section" aria-labelledby="how-title">
+        <div className="section-head">
+          <h2 id="how-title">{how.title}</h2>
+        </div>
+        <ol className="howto">
+          {how.steps.map((step) => (
+            <li key={step.title}>
+              <h3>{step.title}</h3>
+              <p className="muted">{step.body}</p>
+            </li>
+          ))}
+        </ol>
+      </section>
+
       <section className="section" aria-labelledby="sizing-title">
         <div className="section-head">
-          <p className="label">{agentCalc.label}</p>
           <h2 id="sizing-title">{agentCalc.title}</h2>
           <p className="lede">{agentCalc.intro}</p>
         </div>
@@ -135,7 +147,6 @@ export function Landing() {
 
       <section className="section" aria-labelledby="why-title">
         <div className="section-head">
-          <p className="label">{why.label}</p>
           <h2 id="why-title">{why.title}</h2>
           <p className="lede">{why.body}</p>
         </div>
@@ -152,24 +163,9 @@ export function Landing() {
         </p>
       </section>
 
-      <section className="section" aria-labelledby="how-title">
-        <div className="section-head">
-          <p className="label">{how.label}</p>
-          <h2 id="how-title">{how.title}</h2>
-        </div>
-        <ol className="howto">
-          {how.steps.map((step) => (
-            <li key={step.title}>
-              <h3>{step.title}</h3>
-              <p className="muted">{step.body}</p>
-            </li>
-          ))}
-        </ol>
-      </section>
 
       <section className="section" aria-labelledby="live-title">
         <div className="section-head">
-          <p className="label">{live.label}</p>
           <h2 id="live-title">{live.title}</h2>
         </div>
         <div className="stack-lg">
@@ -181,7 +177,6 @@ export function Landing() {
 
       <section className="section" aria-labelledby="roles-title">
         <div className="section-head">
-          <p className="label">{roles.label}</p>
           <h2 id="roles-title">{roles.title}</h2>
           <p className="lede">{roles.intro}</p>
         </div>
@@ -212,49 +207,9 @@ export function Landing() {
         </p>
       </section>
 
-      <section className="section" aria-labelledby="uses-title">
-        <div className="section-head">
-          <p className="label">{uses.label}</p>
-          <h2 id="uses-title">{uses.title}</h2>
-          <p className="muted">{uses.note}</p>
-        </div>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">{uses.label}</th>
-                <th scope="col" className="num">
-                  {uses.payoutLabel}
-                </th>
-                <th scope="col" className="num">
-                  {uses.principalLabel}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {uses.items.map((item) => (
-                <tr key={item.title}>
-                  <td>
-                    <strong style={{ fontWeight: 600 }}>{item.title}</strong>
-                    <br />
-                    <span className="muted">{item.body}</span>
-                  </td>
-                  <td className="num" style={{ whiteSpace: "nowrap" }}>
-                    {item.payout}
-                  </td>
-                  <td className="num" style={{ whiteSpace: "nowrap", fontFamily: "var(--font-display)", fontSize: "var(--size-lede)" }}>
-                    {item.principal} <span className="faint small">{uses.unit}</span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
 
       <section className="section" aria-labelledby="loop-title">
         <div className="section-head">
-          <p className="label">{loop.label}</p>
           <h2 id="loop-title">{loop.title}</h2>
         </div>
         <dl className="qa">
@@ -274,7 +229,6 @@ export function Landing() {
 
       <section className="section" aria-labelledby="simulated-title">
         <div className="section-head">
-          <p className="label">{simulated.label}</p>
           <h2 id="simulated-title">{simulated.title}</h2>
         </div>
         <dl className="qa">
@@ -289,7 +243,6 @@ export function Landing() {
 
       <section className="section" aria-labelledby="faq-title">
         <div className="section-head">
-          <p className="label">{faq.label}</p>
           <h2 id="faq-title">{faq.title}</h2>
         </div>
         <dl className="qa">
