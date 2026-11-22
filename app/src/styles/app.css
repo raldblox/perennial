@@ -802,10 +802,10 @@ dialog[open] {
   display: block;
 }
 
-@media (min-width: 60rem) {
-  .hero h1 span {
-    white-space: nowrap;
-  }
+.hero h1 {
+  font-size: clamp(2.25rem, 1.1rem + 3.4vw, 3.75rem);
+  overflow-wrap: break-word;
+  text-wrap: balance;
 }
 
 .hero .actions {
