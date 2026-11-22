@@ -54,6 +54,35 @@ such vaults exist, which is what the ERC-4626 and Aave adapters are for.
 visibly pays several 0.002 fUSD calls a minute in a demonstration. Its reserve
 drains at that speed and must be refilled.
 
+## Demo position
+
+Position 1 of the accelerated vault (`0x496AAa4D585B97c8a26095D97Af4bBfAd473798c`),
+opened on 22 November 2026 by the deployer with the app's own modules and left
+open, so the live app shows a real control panel
+([perennial-flax.vercel.app/#/position/demo/1](https://perennial-flax.vercel.app/#/position/demo/1)).
+Terms: 20 fUSD; budget mode, 1 fUSD per week (`payoutInterval` 604,800 s);
+buffer cap 0.048 fUSD, a day of one 0.002 fUSD call an hour; check-in period
+30 days, grace 7 days; the owner can close; no heirs.
+
+Each spend pays 0.002 fUSD to the deployer, signed with its ML-DSA-87 key;
+its `ref` is the Keccak-256 hash of a sample inference request
+(`POST /chat/completions` with a `request_id` from `req_0001` to `req_0003`,
+then `POST /embeddings`, `req_0004`).
+
+| Step | Transaction | `ref` |
+|---|---|---|
+| EVM window, scoped to the vault and fUSD (native) | `037A8210EE972DC14E14D0CB766EE66553D73F37F33B2015A393D2F78EBF0B01` | |
+| Approve exactly 20 fUSD | `0xa4c137c89c334cc8e84bc90ceb16bff653c7e3af2afa1c4f115e7f7c975b2d9c` | |
+| Open position 1 | `0xc2b40e1d0e7577db4308ee44db5c992254506670bb918f6c5896ebbad56faa8c` | |
+| Spend #1 | `0xba68c77edd37eaed209a798d08d53747acfd114190172659a00375855f287398` | `0xb4165c49e93593217c16728d688ab16d5e23b61bc7f418aca4ba51e88ab3366e` |
+| Spend #2 | `0x50b3e8cee538aa842f4f068d6c6556100d6d7167c2917582c663d5f95e904a5e` | `0x57d169958f8000f3d7e7ad3eab5f8b73e18385bc5e1ef9bc4d4ca1ae9e45c0dc` |
+| Spend #3 | `0x0dd40d3687222a11fbc66b20b0f50d56c3f8d23697c24ed07e347eb19e0e3daa` | `0x9402415e31b1ac896644e8fea255fb427f197598b2f06b77fd4f2bfdde3b4999` |
+| Spend #4 | `0xd64c01839a64a283f51c59ab31c156d6ff32589ffcf138c44bbebf6c455e09c0` | `0xc4a9e65545cc649ae8015eb4705eb9a978dfb8a166e1f15c3e4ac31b1b7aa6b3` |
+| Close the EVM window (native) | `38FA5402E4CFF5C059B519C9DE578137C56561B04A32215713D86CAE9C01F4F5` | |
+
+After the spends: principal 20.000000 fUSD, 0.008 spent in the current window,
+0.992 fUSD of the week's budget left. Cost: 0.389 QOR.
+
 ## Earlier test deployments (retired)
 
 The first row is the final contract at a round 5%, replaced by the vault
