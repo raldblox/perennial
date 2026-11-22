@@ -14,7 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          submodules: recursive
+          submodules: true
       # Pinned: forge fmt output differs between releases.
       - uses: foundry-rs/foundry-toolchain@v1
         with:

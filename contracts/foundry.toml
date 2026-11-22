@@ -12,6 +12,7 @@ optimizer_runs = 200
 remappings = [
     "forge-std/=lib/forge-std/src/",
     "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+    "qorechain-asset-kit/=lib/qorechain-asset-kit/contracts/src/",
 ]
 
 [profile.default.fuzz]
