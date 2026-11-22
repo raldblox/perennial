@@ -9,7 +9,7 @@
  *   pnpm brand                          # composes the cover around it
  *
  * Uses an installed Chromium (Playwright's cache, or PANEL_SHOT_CHROMIUM).
- * Writes ../docs/assets/panel.png at 1440 x 1100 CSS pixels, scale 2.
+ * Writes ../docs/assets/panel.png at 1120 x 1000 CSS pixels, scale 2.
  */
 import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -23,7 +23,7 @@ const base = process.env.PANEL_SHOT_BASE ?? "http://localhost:4173/";
 
 const browser = await chromium.launch(process.env.PANEL_SHOT_CHROMIUM ? { executablePath: process.env.PANEL_SHOT_CHROMIUM } : {});
 try {
-  const page = await browser.newPage({ viewport: { width: 1440, height: 1100 }, deviceScaleFactor: 2, colorScheme: "light" });
+  const page = await browser.newPage({ viewport: { width: 1120, height: 1000 }, deviceScaleFactor: 2, colorScheme: "light" });
   await page.goto(`${base}#/position/${target}`);
   // The panel reads the chain: wait until the ledger and the health figures are in.
   await page.getByRole("heading", { name: /Position \d+/ }).waitFor({ timeout: 30_000 });
