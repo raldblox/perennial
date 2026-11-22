@@ -7,7 +7,8 @@
  *   pnpm brand
  *
  * Writes:
- *   ../docs/assets/cover.png      1920 x 1080, the repository's cover
+ *   ../docs/assets/cover.png      1600 x 900, the repository's and project page's cover,
+ *                                 around ../docs/assets/panel.png (pnpm panel-shot)
  *   public/social.png             1200 x 630, the page's link preview
  *   public/favicon.svg            the mark, following the colour scheme
  *   public/favicon.png            64 x 64
@@ -54,7 +55,7 @@ interface Node {
 type Child = Node | string;
 
 function h(type: string, style: Style, ...children: Child[]): Node {
-  return { type, props: { style, children: children.length === 1 ? children[0] : children } };
+  return { type, props: { style, children: children.length === 0 ? undefined : children.length === 1 ? children[0] : children } };
 }
 
 /** The mark: a fixed core and the cycle of income around it (same geometry as the app's). */
@@ -80,113 +81,125 @@ function label(text: string, size: number): Node {
   return h("div", { fontFamily: "Sans", fontWeight: 600, fontSize: size, letterSpacing: size * 0.14, color: color("ink-3") }, text.toUpperCase());
 }
 
-/** A downward arrow, drawn, so it does not depend on a font's glyphs. */
-function arrow(stroke: string, height: number, scale: number): Node {
-  const w = 22 * scale;
-  return {
-    type: "svg",
-    props: {
-      width: w,
-      height,
-      viewBox: `0 0 22 ${(height / scale).toString()}`,
-      children: [
-        { type: "line", props: { x1: 11, y1: 0, x2: 11, y2: height / scale - 9, stroke, strokeWidth: 2.5 } },
-        { type: "path", props: { d: `M3 ${(height / scale - 12).toString()} L11 ${(height / scale).toString()} L19 ${(height / scale - 12).toString()} Z`, fill: stroke } },
-      ],
-    },
-  };
+/** The live control panel, screenshotted by `pnpm panel-shot` (or PANEL_IMAGE for a trial). */
+function panelImage(): { src: string; width: number; height: number } {
+  const file = process.env.PANEL_IMAGE ?? resolve(app, "../docs/assets/panel.png");
+  const data = readFileSync(file);
+  // PNG header: width and height are big-endian at bytes 16 and 20.
+  return { src: `data:image/png;base64,${data.toString("base64")}`, width: data.readUInt32BE(16), height: data.readUInt32BE(20) };
 }
 
-/** One stage of the mechanism: a box with a label, a figure and a note. */
-function stage(name: string, value: string, note: string, scale: number, filled = false): Node {
-  const ink = filled ? color("accent-ink") : color("ink");
+function dot(scale: number): Node {
+  return h("div", { width: 12 * scale, height: 12 * scale, borderRadius: 12 * scale, backgroundColor: color("rule") });
+}
+
+function proof(text: string, scale: number): Node {
   return h(
     "div",
-    {
-      display: "flex",
-      flexDirection: "column",
-      gap: 6 * scale,
-      padding: `${20 * scale}px ${26 * scale}px`,
-      backgroundColor: filled ? color("accent") : color("field"),
-      border: `${Math.max(1, 2 * scale)}px solid ${filled ? color("accent") : color("rule-strong")}`,
-    },
-    h("div", { fontFamily: "Sans", fontWeight: 600, fontSize: 16 * scale, letterSpacing: 16 * scale * 0.14, color: filled ? color("accent-wash") : color("ink-3") }, name.toUpperCase()),
-    h("div", { fontFamily: "Serif", fontWeight: 600, fontSize: 44 * scale, color: ink, letterSpacing: -0.5 }, value),
-    h("div", { fontFamily: "Sans", fontSize: 20 * scale, color: filled ? color("accent-wash") : color("ink-2") }, note),
+    { display: "flex", gap: 14 * scale, alignItems: "flex-start", borderTop: `${Math.max(1, 1.5 * scale)}px solid ${color("rule")}`, paddingTop: 11 * scale, fontSize: 19 * scale, lineHeight: 1.35, color: color("ink-2") },
+    h("div", { width: 8 * scale, height: 8 * scale, borderRadius: 8 * scale, backgroundColor: color("accent"), flexShrink: 0, marginTop: 9 * scale }),
+    h("div", {}, text),
   );
 }
 
-/** The link between two stages: an arrow and what travels along it. */
-function flow(text: string, scale: number): Node {
+function factRow(name: string, value: string, scale: number): Node {
   return h(
     "div",
-    { display: "flex", alignItems: "center", gap: 16 * scale, paddingLeft: 30 * scale, height: 70 * scale },
-    arrow(color("accent"), 62 * scale, scale),
-    h("div", { fontFamily: "Sans", fontWeight: 600, fontSize: 20 * scale, color: color("accent") }, text),
+    { display: "flex", justifyContent: "space-between", gap: 24 * scale, borderTop: `${Math.max(1, 1.5 * scale)}px solid ${color("rule")}`, paddingTop: 12 * scale, fontSize: 19 * scale },
+    h("div", { color: color("ink-3") }, name),
+    h("div", { color: color("ink"), fontWeight: 600 }, value),
   );
 }
 
-function aside(text: string, scale: number): Node {
-  return h(
-    "div",
-    { display: "flex", flex: 1, fontFamily: "Sans", fontSize: 18 * scale, lineHeight: 1.35, color: color("ink-2"), borderTop: `${Math.max(1, 2 * scale)}px solid ${color("rule")}`, paddingTop: 12 * scale },
-    text,
-  );
-}
-
-/** The cover and the social preview share one composition, scaled: the promise on the left, the mechanism on the right. */
+/**
+ * The cover and the social preview share one composition, scaled from 1600 x 900: the
+ * claim and its proof on the left, the live control panel in a browser frame on the right.
+ */
 function composition(width: number, height: number): Node {
-  const s = width / 1920;
-  const pad = 100 * s;
+  const s = width / 1600;
+  const panel = panelImage();
+  const frameW = 980 * s;
+  const shotH = (frameW * panel.height) / panel.width;
   return h(
     "div",
-    { width, height, display: "flex", padding: pad, gap: 88 * s, backgroundColor: color("paper"), fontFamily: "Sans" },
+    { width, height, display: "flex", position: "relative", overflow: "hidden", backgroundColor: color("paper"), fontFamily: "Sans" },
+    // The browser frame, bleeding off the right and bottom edges.
     h(
       "div",
-      { display: "flex", flexDirection: "column", justifyContent: "space-between", flex: 1 },
+      {
+        position: "absolute",
+        left: 760 * s,
+        top: 118 * s,
+        width: frameW,
+        height: 900 * s,
+        display: "flex",
+        flexDirection: "column",
+        backgroundColor: color("field"),
+        border: `${Math.max(1, 2 * s)}px solid ${color("rule-strong")}`,
+        borderRadius: 14 * s,
+        overflow: "hidden",
+      },
       h(
         "div",
-        { display: "flex", alignItems: "center", gap: 16 * s },
-        markSvg(color("accent"), 46 * s),
-        h("div", { fontFamily: "Serif", fontWeight: 600, fontSize: 46 * s, color: color("ink"), letterSpacing: -0.5 }, "Perennial"),
+        { display: "flex", alignItems: "center", gap: 10 * s, height: 46 * s, paddingLeft: 18 * s, borderBottom: `${Math.max(1, 1.5 * s)}px solid ${color("rule")}`, backgroundColor: color("paper") },
+        dot(s),
+        dot(s),
+        dot(s),
+        h("div", { marginLeft: 18 * s, fontSize: 17 * s, color: color("ink-3") }, "perennial-flax.vercel.app/#/position/demo/1"),
       ),
-      h(
-        "div",
-        { display: "flex", flexDirection: "column", gap: 30 * s },
-        h(
-          "div",
-          { display: "flex", flexDirection: "column", fontFamily: "Serif", fontWeight: 500, fontSize: 96 * s, lineHeight: 1.04, color: color("ink"), letterSpacing: -2 * s },
-          h("div", {}, "Deposit once."),
-          h("div", { color: color("accent") }, "The yield pays"),
-          h("div", { color: color("accent") }, "your agent's calls."),
-        ),
-        h(
-          "div",
-          { fontSize: 29 * s, lineHeight: 1.45, color: color("ink-2") },
-          "The agent spends call by call with its own ML-DSA-87 key, checked in the contract. A stolen or quantum-recovered classical key moves nothing.",
-        ),
-      ),
-      h(
-        "div",
-        { display: "flex", flexDirection: "column", gap: 8 * s },
-        label("On-chain endowment · QoreChain testnet", 17 * s),
-        h("div", { fontFamily: "Sans", fontSize: 19 * s, color: color("ink-3") }, "Yield simulated at the Aave v3 USDC rate of 16 Nov 2026 (4.29%)."),
-      ),
+      { type: "img", props: { src: panel.src, width: frameW, height: shotH, style: { width: frameW, height: shotH } } },
     ),
+    // Facts every spend carries, over the frame.
     h(
       "div",
-      { display: "flex", flexDirection: "column", justifyContent: "center", width: 700 * s },
-      stage("Principal", "500 fUSD", "Deposited once. Never spent.", s),
-      flow("yield, 4.29% a year", s),
-      stage("Buffer", "0.048 fUSD cap", "A day of calls. Above it, yield joins the principal.", s),
-      flow("spend, signed with ML-DSA-87", s),
-      stage("Agent's calls", "1.06 an hour", "0.002 fUSD each, paid to any recipient", s, true),
+      {
+        position: "absolute",
+        left: 690 * s,
+        top: 600 * s,
+        width: 460 * s,
+        display: "flex",
+        flexDirection: "column",
+        gap: 12 * s,
+        padding: `${22 * s}px ${26 * s}px`,
+        backgroundColor: color("field"),
+        border: `${Math.max(1, 2 * s)}px solid ${color("rule-strong")}`,
+        borderRadius: 12 * s,
+      },
+      h("div", { fontFamily: "Serif", fontWeight: 600, fontSize: 26 * s, color: color("ink") }, "Every spend"),
+      factRow("Signature", "ML-DSA-87 · FIPS 204", s),
+      factRow("Size", "4,627 bytes", s),
+      factRow("Verified", "in the contract, pqcVerify", s),
+    ),
+    // The claim and its proof.
+    h(
+      "div",
+      { position: "absolute", left: 88 * s, top: 72 * s, width: 600 * s, height: 756 * s, display: "flex", flexDirection: "column", justifyContent: "space-between" },
       h(
         "div",
-        { display: "flex", gap: 24 * s, marginTop: 34 * s },
-        aside("Agent goes silent: the income passes to its heirs.", s),
-        aside("Owner kept the right: one signature closes and returns the capital.", s),
+        { display: "flex", alignItems: "center", gap: 14 * s },
+        markSvg(color("accent"), 40 * s),
+        h("div", { fontFamily: "Serif", fontWeight: 600, fontSize: 40 * s, color: color("ink"), letterSpacing: -0.5 }, "Perennial"),
       ),
+      h(
+        "div",
+        { display: "flex", flexDirection: "column", gap: 22 * s },
+        label("Inference budget for AI agents · QoreChain testnet", 15 * s),
+        h(
+          "div",
+          { display: "flex", flexDirection: "column", fontFamily: "Serif", fontWeight: 500, fontSize: 54 * s, lineHeight: 1.06, color: color("ink"), letterSpacing: -1.2 * s },
+          h("div", {}, "An inference budget"),
+          h("div", {}, "your agent spends"),
+          h("div", { color: color("accent") }, "and nobody can steal."),
+        ),
+        h(
+          "div",
+          { display: "flex", flexDirection: "column", gap: 12 * s, width: 560 * s },
+          proof("Every spend needs the agent's ML-DSA-87 signature, checked in the contract.", s),
+          proof("A recovered classical key moves 0 fUSD; a stolen agent key, one budget window.", s),
+          proof("With a yield vault it lasts indefinitely when the yield covers the spend.", s),
+        ),
+      ),
+      h("div", { fontSize: 17 * s, color: color("ink-3") }, "perennial-flax.vercel.app · github.com/raldblox/perennial"),
     ),
   );
 }
@@ -221,7 +234,7 @@ async function main(): Promise<void> {
     writeFileSync(path, data);
     console.log(`wrote ${path} (${Buffer.byteLength(data).toLocaleString("en")} bytes)`);
   };
-  write(resolve(app, "../docs/assets/cover.png"), await png(composition(1920, 1080), 1920, 1080));
+  write(resolve(app, "../docs/assets/cover.png"), await png(composition(1600, 900), 1600, 900));
   write(resolve(app, "public/social.png"), await png(composition(1200, 675), 1200, 675));
   write(resolve(app, "public/favicon.svg"), faviconSvg());
   write(resolve(app, "public/favicon.png"), await png(iconNode(64), 64, 64));
