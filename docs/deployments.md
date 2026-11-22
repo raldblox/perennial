@@ -64,24 +64,31 @@ Terms: 20 fUSD; budget mode, 1 fUSD per week (`payoutInterval` 604,800 s);
 buffer cap 0.048 fUSD, a day of one 0.002 fUSD call an hour; check-in period
 30 days, grace 7 days; the owner can close; no heirs.
 
-Each spend pays 0.002 fUSD to the deployer, signed with its ML-DSA-87 key;
-its `ref` is the Keccak-256 hash of a sample inference request
-(`POST /chat/completions` with a `request_id` from `req_0001` to `req_0003`,
-then `POST /embeddings`, `req_0004`).
+It is a shared demo: anyone the beneficiary authorises may spend from it.
+Every spend pays 0.002 fUSD and is signed with the beneficiary's ML-DSA-87
+key; all were sent from the deployer account, by the session named below.
+Spends #1 to #4 carry the Keccak-256 hash of a sample inference request as
+`ref` (`POST /chat/completions` with `request_id` `req_0001` to `req_0003`,
+then `POST /embeddings`, `req_0004`); #5 was a PQ-402 `pq-perennial`
+payment, whose `ref` binds its HTTP request.
 
-| Step | Transaction | `ref` |
-|---|---|---|
-| EVM window, scoped to the vault and fUSD (native) | `037A8210EE972DC14E14D0CB766EE66553D73F37F33B2015A393D2F78EBF0B01` | |
-| Approve exactly 20 fUSD | `0xa4c137c89c334cc8e84bc90ceb16bff653c7e3af2afa1c4f115e7f7c975b2d9c` | |
-| Open position 1 | `0xc2b40e1d0e7577db4308ee44db5c992254506670bb918f6c5896ebbad56faa8c` | |
-| Spend #1 | `0xba68c77edd37eaed209a798d08d53747acfd114190172659a00375855f287398` | `0xb4165c49e93593217c16728d688ab16d5e23b61bc7f418aca4ba51e88ab3366e` |
-| Spend #2 | `0x50b3e8cee538aa842f4f068d6c6556100d6d7167c2917582c663d5f95e904a5e` | `0x57d169958f8000f3d7e7ad3eab5f8b73e18385bc5e1ef9bc4d4ca1ae9e45c0dc` |
-| Spend #3 | `0x0dd40d3687222a11fbc66b20b0f50d56c3f8d23697c24ed07e347eb19e0e3daa` | `0x9402415e31b1ac896644e8fea255fb427f197598b2f06b77fd4f2bfdde3b4999` |
-| Spend #4 | `0xd64c01839a64a283f51c59ab31c156d6ff32589ffcf138c44bbebf6c455e09c0` | `0xc4a9e65545cc649ae8015eb4705eb9a978dfb8a166e1f15c3e4ac31b1b7aa6b3` |
-| Close the EVM window (native) | `38FA5402E4CFF5C059B519C9DE578137C56561B04A32215713D86CAE9C01F4F5` | |
+| Step | Transaction | `ref` | By |
+|---|---|---|---|
+| EVM window, scoped to the vault and fUSD (native) | `037A8210EE972DC14E14D0CB766EE66553D73F37F33B2015A393D2F78EBF0B01` | | Perennial |
+| Approve exactly 20 fUSD | `0xa4c137c89c334cc8e84bc90ceb16bff653c7e3af2afa1c4f115e7f7c975b2d9c` | | Perennial |
+| Open position 1 | `0xc2b40e1d0e7577db4308ee44db5c992254506670bb918f6c5896ebbad56faa8c` | | Perennial |
+| Spend #1 | `0xba68c77edd37eaed209a798d08d53747acfd114190172659a00375855f287398` | `0xb4165c49e93593217c16728d688ab16d5e23b61bc7f418aca4ba51e88ab3366e` | Perennial |
+| Spend #2 | `0x50b3e8cee538aa842f4f068d6c6556100d6d7167c2917582c663d5f95e904a5e` | `0x57d169958f8000f3d7e7ad3eab5f8b73e18385bc5e1ef9bc4d4ca1ae9e45c0dc` | Perennial |
+| Spend #3 | `0x0dd40d3687222a11fbc66b20b0f50d56c3f8d23697c24ed07e347eb19e0e3daa` | `0x9402415e31b1ac896644e8fea255fb427f197598b2f06b77fd4f2bfdde3b4999` | Perennial |
+| Spend #4 | `0xd64c01839a64a283f51c59ab31c156d6ff32589ffcf138c44bbebf6c455e09c0` | `0xc4a9e65545cc649ae8015eb4705eb9a978dfb8a166e1f15c3e4ac31b1b7aa6b3` | Perennial |
+| Close the EVM window (native) | `38FA5402E4CFF5C059B519C9DE578137C56561B04A32215713D86CAE9C01F4F5` | | Perennial |
+| Spend #5 (block 10,555,913) | `0x88d60cb2df8a36d19e14ab2eae05ce8067938a59565cdbc7d2032eeb3da18816` | `0x65eced1687d1d119536f25561fa3bf1c8e8540187f03d7646fc139d1902943a4` | PQ-402 |
 
-After the spends: principal 20.000000 fUSD, 0.008 spent in the current window,
-0.992 fUSD of the week's budget left. Cost: 0.389 QOR.
+After Perennial's four spends: principal 20.000000 fUSD, 0.008 spent in the
+current window, 0.992 fUSD of the week's budget left; Perennial's run cost
+0.389 QOR. After the fifth: 0.010 spent, 0.990 left, nonce 5. Yield above the
+0.048 fUSD buffer cap compounds, so the principal grows at the accelerated
+rate.
 
 ## Earlier test deployments (retired)
 
