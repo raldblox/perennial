@@ -218,7 +218,7 @@ export function PositionPage({ vaultId, id }: { vaultId: VaultId; id: bigint }) 
         </dl>
 
         <div className="figures">
-          <Figure label={copy.principal} note={copy.principalNote}>
+          <Figure label={copy.principal} note={s.budgetMode ? copy.principalNoteBudget : copy.principalNote}>
             <Amount value={s.principal} decimals={DECIMALS} unit={symbol} />
           </Figure>
           <Figure label={copy.buffer} note={capped ? copy.bufferNote(`${formatAmount(s.bufferCap, DECIMALS, 6)} ${symbol}`) : copy.bufferNoCap}>

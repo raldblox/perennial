@@ -47,7 +47,7 @@ export const hero = {
   headlineLines: ["An inference budget your agent spends", "and nobody can steal."],
   headline: "An inference budget your agent spends and nobody can steal.",
   lede:
-    "Your agent pays for each model call with spend(), signed by its own ML-DSA-87 key and verified in the contract, inside a limit it cannot exceed: in budget mode at most payoutAmount per payoutInterval, a bound a fuzz test and an invariant check. A recovered classical key moves nothing; a stolen agent key spends only within the limit until you, the owner, close the position. Connected to a yield vault, the budget refills itself and lasts indefinitely when the yield covers the spend.",
+    "Give an AI agent money for model calls without handing it a wallet. The agent pays each call with its own post-quantum key, inside a spending limit the contract enforces. A stolen agent key can spend only up to that limit; a classical key broken by a quantum computer moves nothing. Put the budget in a yield vault and, once the yield covers the spend, it lasts indefinitely.",
   primary: "Fund an agent",
   secondary: "See a position",
   example: {
@@ -68,35 +68,35 @@ export const hero = {
 
 export const agentCalc = {
   label: "Size it",
-  title: "How much your agent needs.",
+  title: "How long a budget lasts.",
   intro:
-    "Pick how often your agent calls a model and what a call costs. The deposit is the margin times a year of calls, divided by the yield rate.",
-  modeDeposit: "From calls to deposit",
-  modeCalls: "From deposit to calls",
+    "Set how often your agent calls a model, what a call costs and what you deposit. Pick the yield your deposit would earn: nothing on QoreChain today, or a reference rate from a large dollar vault elsewhere.",
   callsPerHour: "Calls an hour",
   price: "Price per call",
   priceHint: "fUSD. A small model call costs about 0.002.",
   deposit: "Deposit",
-  rate: "Yield rate",
-  rateHint: "% a year. Nothing on QoreChain pays a yield today, so 0% is the assumption here; the others are rates on Ethereum, variable, with their protocols' risks.",
-  presets: "Reference rates",
-  presetZero: "0%, this chain today",
+  rate: "Yield",
+  custom: "Other rate, % a year",
+  presets: "Yield the deposit earns",
+  presetZero: "None (QoreChain today)",
   preset: (name: string, percent: string) => `${name} ${percent}%`,
-  presetSource: (source: string, date: string) => `30-day means from ${source}, ${date}.`,
-  resultLasts: "The deposit lasts",
+  presetSource: (source: string, date: string) =>
+    `Reference rates are 30-day means on Ethereum from ${source}, ${date}. They vary and carry their protocols' risks; the testnet vaults only simulate them.`,
+  resultForever: "Lasts indefinitely",
+  resultLasts: "The budget lasts",
+  years: "years",
   days: "days",
-  zeroNote: "At 0% nothing is earned: with budget mode the deposit itself pays the calls until it is spent. Income paid in extends it.",
-  formulaZero: "days = deposit ÷ (calls a day × price)",
-  margin: "Margin",
-  marginHint: "× the break-even deposit. 1.15 lets the yield fall 13% before calls go unpaid.",
-  resultDeposit: "Deposit needed",
-  resultCalls: "Calls it pays an hour",
-  perYear: "Spent a year",
-  perDay: "Calls a day",
-  formula: "deposit = margin × calls a year × price ÷ rate",
-  invalid: "Enter calls and prices as plain numbers, the rate in percent and a margin of at least 1.",
+  earns: "Yield a year",
+  spends: "Spent a year",
+  calls: "Calls a year",
+  needed: "Deposit that lasts indefinitely",
+  neededNote: (margin: string) => `Break-even times ${margin}, so the yield can fall 13% before the budget starts to shrink.`,
+  neededNone: "At 0% no deposit lasts indefinitely: the agent spends the deposit itself.",
+  foreverNote: "The yield covers every call, so the deposit is never drawn down.",
+  shrinkNote: "The yield pays part of each call and the deposit pays the rest, so it shrinks more slowly than it would at 0%.",
+  zeroNote: "Nothing is earned, so each call is paid from the deposit until it is spent.",
+  invalid: "Enter calls, price and deposit as positive numbers and the rate in percent.",
   fund: "Fund an agent with this",
-  anHour: "an hour",
 } as const;
 
 export const intervals = {
@@ -122,23 +122,23 @@ export const why = {
 
 export const how = {
   label: "How it works",
-  title: "Four steps. The last two repeat for every call.",
+  title: "Fund it once. The agent spends within its limit.",
   steps: [
     {
-      title: "Deposit",
-      body: "You deposit fUSD once. It becomes the position's principal and goes into the yield source. Nothing in the vault can pay it out.",
-    },
-    {
-      title: "Earn",
-      body: "The principal earns at the source's rate. A harvest, which anyone can call, moves what it has earned into the position's buffer.",
+      title: "Fund",
+      body: "You deposit fUSD and set the agent's limit: at most so much per day, week or month. Anyone can top the position up later, including revenue from elsewhere.",
     },
     {
       title: "Spend",
-      body: "For each call, the agent signs a spend with its ML-DSA-87 key: who is paid, how much, and a reference to the request. Anyone can submit it; the vault pays from the buffer only.",
+      body: "The agent pays each inference call with a spend signed by its own ML-DSA-87 key. The contract checks the key, the limit and the amount. Anyone can submit it, so the agent needs no gas.",
     },
     {
-      title: "Compound",
-      body: "Yield above the buffer cap is added to the principal, so it keeps earning and can never be spent. If the agent stops spending and checking in, the income goes to its heirs.",
+      title: "Refill",
+      body: "If the deposit sits in a yield vault, what it earns refills the budget. Once the yield covers the spend, the budget lasts indefinitely. Unspent yield above the cap is added to the deposit.",
+    },
+    {
+      title: "Stop or hand over",
+      body: "Your own key can stay offline. You can close the position and take the rest back. If the agent goes silent, the budget passes to the accounts you named.",
     },
   ],
   compoundingRule: "Yield above the buffer cap is added to the principal, so it keeps earning and can never be spent.",
@@ -526,6 +526,7 @@ export const panel = {
   deadline: "Check-in deadline",
   principal: "Principal",
   principalNote: "Never spent.",
+  principalNoteBudget: "Spent only within the budget, once the buffer is empty.",
   buffer: "Buffer",
   bufferNote: (cap: string) => `Cap ${cap}.`,
   bufferNoCap: "No cap: never compounds.",
