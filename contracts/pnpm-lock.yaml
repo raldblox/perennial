@@ -11,18 +11,30 @@ importers:
       '@cosmjs/stargate':
         specifier: ^0.39.0
         version: 0.39.0
+      '@pq402/client':
+        specifier: 0.2.0
+        version: 0.2.0(typescript@5.9.3)(zod@4.6.7)
+      '@pq402/core':
+        specifier: 0.2.0
+        version: 0.2.0(typescript@5.9.3)(zod@4.6.7)
+      '@pq402/scheme-qorechain':
+        specifier: 0.2.0
+        version: 0.2.0(typescript@5.9.3)(zod@4.6.7)
       '@qorechain/evm':
         specifier: ^0.14.0
-        version: 0.14.0(viem@2.57.19(typescript@5.9.3))
+        version: 0.14.0(viem@2.57.19(typescript@5.9.3)(zod@4.6.7))
       '@qorechain/pqc':
         specifier: ^0.2.3
         version: 0.2.3
+      '@qorechain/qoreseal':
+        specifier: 0.1.0
+        version: 0.1.0
       '@qorechain/sdk':
         specifier: ^0.14.0
-        version: 0.14.0(viem@2.57.19(typescript@5.9.3))
+        version: 0.14.0(viem@2.57.19(typescript@5.9.3)(zod@4.6.7))
       viem:
         specifier: ^2.0.0
-        version: 2.57.19(typescript@5.9.3)
+        version: 2.57.19(typescript@5.9.3)(zod@4.6.7)
     devDependencies:
       '@noble/curves':
         specifier: ^2.4.0
@@ -319,6 +331,15 @@ packages:
     resolution: {integrity: sha512-+P9981IiAnVh+rmcubozzVwrEy3XsN/tMhTnvsjV9VDaYpOnNCqWqKo2FLWxbu92YHfjGIlE5XnW175UK+ln+Q==}
     engines: {node: '>= 20.19.0'}
 
+  '@pq402/client@0.2.0':
+    resolution: {integrity: sha512-eeVLzftjroKE2ufzC6PBy63spTPBmm2R3AFRjtjppthHm2C1MYnPHMudJDsE1ukS8Y3P5o5YmIrkLR8SsRgxjQ==}
+
+  '@pq402/core@0.2.0':
+    resolution: {integrity: sha512-akHcsuuDdz4pDXJnN3+Dfz+81qdvVbtMnzhEkGdjg855snhXbPFwrkP7knBwwSCp3P6luS52DO/u4HiOO/rf1Q==}
+
+  '@pq402/scheme-qorechain@0.2.0':
+    resolution: {integrity: sha512-BycWgMoHhGhAd5coKzr+2UIy7FtAGQGdeXXhELgUgEJDb6rk5ra4BGTP2cbRn8DScmCDnLEv+qAI3SBLkWhyfA==}
+
   '@qorechain/evm@0.14.0':
     resolution: {integrity: sha512-IdIJpbmJX8T+ctDnGPv50UGUM2o80TfrWAjU41UjUfIEaWTcTVt64fXQR8V86BDuXRlOuFAa9UiM4RtnyKD5Tg==}
     peerDependencies:
@@ -332,6 +353,14 @@ packages:
     resolution: {integrity: sha512-PIewGe1NoeqggtGrsQ0rOOyWn4vnUoBVZpMlSZnb/udBlbCvyWDwDZ41QvBu6B6+9SYKPGnTpjOmGk11hyipIg==}
     engines: {node: '>=18'}
     hasBin: true
+
+  '@qorechain/qoreseal@0.1.0':
+    resolution: {integrity: sha512-OBUwTVsibzTH/zOpqT6lkq7mH/dCg9zV4hSw3tEMUttt3Jb4BqF4BF6/DsZqzSY1+joPusm3gRutx17kV+Hb5w==}
+    engines: {node: '>=20'}
+
+  '@qorechain/qoresign@0.1.0':
+    resolution: {integrity: sha512-PF4x20G3l1+Qym762WOuoGv/0jN+BMeqIPWwZIGlxF0OMulOIVX2s7yzBaTjrAJUilqUwJKUNtDvLnPEPJFD8g==}
+    engines: {node: '>=20'}
 
   '@qorechain/sdk@0.14.0':
     resolution: {integrity: sha512-EwoH2WX5hRUK685a3NDDd0dZcn7QL/6M11huVh7Kx37nFDMryF8QAHrJe0to8EcRmRnLbMH5UNnZbjoI48wo9Q==}
@@ -353,6 +382,9 @@ packages:
   '@scure/bip32@1.7.0':
     resolution: {integrity: sha512-E4FFX/N3f4B80AKWp5dP6ow+flD1LQZo/w8UnLGYZO674jS6YnYeepycOOksv+vLPSpgN35wgKgy+ybfTb2SMw==}
 
+  '@scure/bip32@2.4.0':
+    resolution: {integrity: sha512-i3DS0CptAocyvqE4n3SUkpzeQK4vJMFwWLofTwRiiKo2aWojBOfyMCgfKw9HVpO6fSY5AK86sHS/Uzn8kK9Few==}
+
   '@scure/bip39@1.6.0':
     resolution: {integrity: sha512-+lF0BbLiJNwVlev4eKelw1WWLaiKXw7sSl8T6FvBlWkdX+94aGJ4o8XjUdlyhTCjd8c+B3KT3JfS8P0bLRNU6A==}
 
@@ -361,6 +393,9 @@ packages:
 
   '@types/node@22.20.5':
     resolution: {integrity: sha512-U2+DNr+wSjpsTS/wZGYHq7GcwfuSmKiKvoPvK22zwTlRhU91yOniN4qRR5KhIjvif7ysw/dz/hKmfDH0Ris4aA==}
+
+  '@x402/core@2.31.0':
+    resolution: {integrity: sha512-7ToCOwHfftfFEERW5Mp6Fc5U1+JrtCLTkbQnEVsBl13IutltP9lWIBYi/J+zy8vQWaLUmACq8A2qywzdt/RRIQ==}
 
   abitype@1.2.3:
     resolution: {integrity: sha512-Ofer5QUnuUdTFsBRwARMoWKOH1ND5ehwYhJ3OJ/BQO+StkwQjHw0XyVh4vDttzHB7QOFhPHa/o413PJ82gU/Tg==}
@@ -524,6 +559,9 @@ packages:
 
   xstream@11.14.0:
     resolution: {integrity: sha512-1bLb+kKKtKPbgTK6i/BaoAn03g47PpFstlbe1BA+y3pNS/LfvcaghS5BFf9+EE1J+KwSQsEpfJvFN5GqFtiNmw==}
+
+  zod@4.6.7:
+    resolution: {integrity: sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg==}
 
 snapshots:
 
@@ -837,9 +875,47 @@ snapshots:
       '@noble/curves': 2.4.0
       '@noble/hashes': 2.4.0
 
-  '@qorechain/evm@0.14.0(viem@2.57.19(typescript@5.9.3))':
+  '@pq402/client@0.2.0(typescript@5.9.3)(zod@4.6.7)':
     dependencies:
-      viem: 2.57.19(typescript@5.9.3)
+      '@pq402/core': 0.2.0(typescript@5.9.3)(zod@4.6.7)
+      '@pq402/scheme-qorechain': 0.2.0(typescript@5.9.3)(zod@4.6.7)
+      '@x402/core': 2.31.0
+    transitivePeerDependencies:
+      - bufferutil
+      - mppx
+      - typescript
+      - utf-8-validate
+      - zod
+
+  '@pq402/core@0.2.0(typescript@5.9.3)(zod@4.6.7)':
+    dependencies:
+      '@qorechain/pqc': 0.2.3
+      '@qorechain/qoreseal': 0.1.0
+      '@x402/core': 2.31.0
+      viem: 2.57.19(typescript@5.9.3)(zod@4.6.7)
+    transitivePeerDependencies:
+      - bufferutil
+      - mppx
+      - typescript
+      - utf-8-validate
+      - zod
+
+  '@pq402/scheme-qorechain@0.2.0(typescript@5.9.3)(zod@4.6.7)':
+    dependencies:
+      '@pq402/core': 0.2.0(typescript@5.9.3)(zod@4.6.7)
+      '@qorechain/qoreseal': 0.1.0
+      '@x402/core': 2.31.0
+      viem: 2.57.19(typescript@5.9.3)(zod@4.6.7)
+    transitivePeerDependencies:
+      - bufferutil
+      - mppx
+      - typescript
+      - utf-8-validate
+      - zod
+
+  '@qorechain/evm@0.14.0(viem@2.57.19(typescript@5.9.3)(zod@4.6.7))':
+    dependencies:
+      viem: 2.57.19(typescript@5.9.3)(zod@4.6.7)
 
   '@qorechain/pqc@0.2.3':
     dependencies:
@@ -848,7 +924,27 @@ snapshots:
 
   '@qorechain/qorescan@0.1.0': {}
 
-  '@qorechain/sdk@0.14.0(viem@2.57.19(typescript@5.9.3))':
+  '@qorechain/qoreseal@0.1.0':
+    dependencies:
+      '@noble/ciphers': 2.4.0
+      '@noble/curves': 2.4.0
+      '@noble/hashes': 2.4.0
+      '@noble/post-quantum': 0.7.1
+      '@qorechain/pqc': 0.2.3
+      '@qorechain/qoresign': 0.1.0
+      '@scure/base': 2.4.0
+      '@scure/bip39': 2.4.0
+
+  '@qorechain/qoresign@0.1.0':
+    dependencies:
+      '@noble/curves': 2.4.0
+      '@noble/hashes': 2.4.0
+      '@qorechain/pqc': 0.2.3
+      '@scure/base': 2.4.0
+      '@scure/bip32': 2.4.0
+      '@scure/bip39': 2.4.0
+
+  '@qorechain/sdk@0.14.0(viem@2.57.19(typescript@5.9.3)(zod@4.6.7))':
     dependencies:
       '@bufbuild/protobuf': 2.17.0
       '@cosmjs/amino': 0.39.0
@@ -858,7 +954,7 @@ snapshots:
       '@cosmjs/tendermint-rpc': 0.39.0
       '@noble/curves': 1.9.7
       '@noble/hashes': 1.8.0
-      '@qorechain/evm': 0.14.0(viem@2.57.19(typescript@5.9.3))
+      '@qorechain/evm': 0.14.0(viem@2.57.19(typescript@5.9.3)(zod@4.6.7))
       '@qorechain/pqc': 0.2.3
       '@scure/base': 1.2.6
       '@scure/bip32': 1.7.0
@@ -867,7 +963,7 @@ snapshots:
       cosmjs-types: 0.11.0
       micro-key-producer: 0.9.0
     optionalDependencies:
-      viem: 2.57.19(typescript@5.9.3)
+      viem: 2.57.19(typescript@5.9.3)(zod@4.6.7)
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
@@ -884,6 +980,12 @@ snapshots:
       '@noble/hashes': 1.8.0
       '@scure/base': 1.2.6
 
+  '@scure/bip32@2.4.0':
+    dependencies:
+      '@noble/curves': 2.4.0
+      '@noble/hashes': 2.4.0
+      '@scure/base': 2.4.0
+
   '@scure/bip39@1.6.0':
     dependencies:
       '@noble/hashes': 1.8.0
@@ -897,9 +999,14 @@ snapshots:
     dependencies:
       undici-types: 6.21.0
 
-  abitype@1.2.3(typescript@5.9.3):
+  '@x402/core@2.31.0':
+    dependencies:
+      zod: 4.6.7
+
+  abitype@1.2.3(typescript@5.9.3)(zod@4.6.7):
     optionalDependencies:
       typescript: 5.9.3
+      zod: 4.6.7
 
   base64-js@1.5.1: {}
 
@@ -997,7 +1104,7 @@ snapshots:
 
   object-keys@1.1.1: {}
 
-  ox@0.14.65(typescript@5.9.3):
+  ox@0.14.65(typescript@5.9.3)(zod@4.6.7):
     dependencies:
       '@adraffy/ens-normalize': 1.11.1
       '@noble/ciphers': 1.3.0
@@ -1005,7 +1112,7 @@ snapshots:
       '@noble/hashes': 1.8.0
       '@scure/bip32': 1.7.0
       '@scure/bip39': 1.6.0
-      abitype: 1.2.3(typescript@5.9.3)
+      abitype: 1.2.3(typescript@5.9.3)(zod@4.6.7)
       eventemitter3: 5.0.1
     optionalDependencies:
       typescript: 5.9.3
@@ -1030,15 +1137,15 @@ snapshots:
 
   undici-types@6.21.0: {}
 
-  viem@2.57.19(typescript@5.9.3):
+  viem@2.57.19(typescript@5.9.3)(zod@4.6.7):
     dependencies:
       '@noble/curves': 1.9.1
       '@noble/hashes': 1.8.0
       '@scure/bip32': 1.7.0
       '@scure/bip39': 1.6.0
-      abitype: 1.2.3(typescript@5.9.3)
+      abitype: 1.2.3(typescript@5.9.3)(zod@4.6.7)
       isows: 1.0.7(ws@8.21.0)
-      ox: 0.14.65(typescript@5.9.3)
+      ox: 0.14.65(typescript@5.9.3)(zod@4.6.7)
       ws: 8.21.0
     optionalDependencies:
       typescript: 5.9.3
@@ -1055,3 +1162,5 @@ snapshots:
     dependencies:
       globalthis: 1.0.4
       symbol-observable: 2.0.3
+
+  zod@4.6.7: {}

@@ -17,12 +17,17 @@
     "typecheck": "tsc --noEmit",
     "swap": "tsx --env-file=.env scripts/swap.ts",
     "cbom": "qorescan solidity src --out ../docs/cbom/contracts.cbom.json",
-    "link-agent": "tsx scripts/link-agent.ts"
+    "link-agent": "tsx scripts/link-agent.ts",
+    "agent-lifecycle": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.agent scripts/agent-lifecycle.ts"
   },
   "dependencies": {
     "@cosmjs/stargate": "^0.39.0",
+    "@pq402/client": "0.2.0",
+    "@pq402/core": "0.2.0",
+    "@pq402/scheme-qorechain": "0.2.0",
     "@qorechain/evm": "^0.14.0",
     "@qorechain/pqc": "^0.2.3",
+    "@qorechain/qoreseal": "0.1.0",
     "@qorechain/sdk": "^0.14.0",
     "viem": "^2.0.0"
   },
