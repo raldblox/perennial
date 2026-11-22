@@ -16,7 +16,8 @@
     "e2e": "tsx --env-file=.env scripts/e2e.ts",
     "typecheck": "tsc --noEmit",
     "swap": "tsx --env-file=.env scripts/swap.ts",
-    "cbom": "qorescan solidity src --out ../docs/cbom/contracts.cbom.json"
+    "cbom": "qorescan solidity src --out ../docs/cbom/contracts.cbom.json",
+    "link-agent": "tsx scripts/link-agent.ts"
   },
   "dependencies": {
     "@cosmjs/stargate": "^0.39.0",
@@ -26,6 +27,7 @@
     "viem": "^2.0.0"
   },
   "devDependencies": {
+    "@noble/curves": "^2.4.0",
     "@qorechain/qorescan": "0.1.0",
     "@types/node": "^22.7.5",
     "create-qorechain-dapp": "^0.14.0",

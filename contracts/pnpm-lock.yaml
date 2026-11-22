@@ -24,6 +24,9 @@ importers:
         specifier: ^2.0.0
         version: 2.57.19(typescript@5.9.3)
     devDependencies:
+      '@noble/curves':
+        specifier: ^2.4.0
+        version: 2.4.0
       '@qorechain/qorescan':
         specifier: 0.1.0
         version: 0.1.0
