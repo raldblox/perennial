@@ -39,8 +39,8 @@ export interface VaultConfig {
 const vaults: readonly VaultConfig[] = [
   {
     id: "agent",
-    address: address("VITE_VAULT_ADDRESS", "0x5BB20552043Df7bC9df11d80BE4Ff024a67c2b16"),
-    deployBlock: BigInt(env("VITE_VAULT_DEPLOY_BLOCK") ?? "10202942"),
+    address: address("VITE_VAULT_ADDRESS", "0x78075C631D41AF72c69e34120d5C33cDC7A66A71"),
+    deployBlock: BigInt(env("VITE_VAULT_DEPLOY_BLOCK") ?? "10203526"),
     source: "simulated",
   },
   {
