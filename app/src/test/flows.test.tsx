@@ -42,9 +42,9 @@ describe("overview", () => {
   it("leads with the agent use case and its arithmetic", async () => {
     renderWith(<App />, fakeClient(state()));
     expect(screen.getByRole("heading", { level: 1, name: "Deposit once. The yield pays your agent's calls." })).toBeInTheDocument();
-    expect(screen.getByText("1.24 calls an hour")).toBeInTheDocument();
-    // The calculator starts at one 0.002 call an hour: 402.96 fUSD.
-    expect(screen.getByTestId("calc-result")).toHaveTextContent("402.96");
+    expect(screen.getByText("1.06 calls an hour")).toBeInTheDocument();
+    // The calculator starts at 0%, this chain today: 500 fUSD at one 0.002 call an hour lasts 10,416.6 days.
+    expect(screen.getByTestId("calc-result")).toHaveTextContent("10,416.6");
     await waitFor(() => expect(screen.getAllByText("Calls paid")[0]?.parentElement).toHaveTextContent("1"));
     expect(screen.getAllByText(/accelerated testnet rate/i).length).toBeGreaterThan(0);
   });
@@ -52,12 +52,14 @@ describe("overview", () => {
   it("recalculates and inverts", async () => {
     const user = userEvent.setup();
     renderWith(<App />, fakeClient(state()));
+    await user.click(screen.getByRole("button", { name: "Aave v3 USDC supply 4.29%" }));
+    expect(screen.getByTestId("calc-result")).toHaveTextContent("469.65");
     const calls = screen.getByLabelText("Calls an hour");
     await user.clear(calls);
     await user.type(calls, "10");
-    expect(screen.getByTestId("calc-result")).toHaveTextContent("4,029.6");
+    expect(screen.getByTestId("calc-result")).toHaveTextContent("4,696.5");
     await user.click(screen.getByRole("button", { name: "From deposit to calls" }));
-    expect(screen.getByTestId("calc-result")).toHaveTextContent("1.24");
+    expect(screen.getByTestId("calc-result")).toHaveTextContent("1.06");
   });
 
   it("says plainly when the vaults cannot be read", async () => {

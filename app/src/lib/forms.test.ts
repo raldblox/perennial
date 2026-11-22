@@ -62,23 +62,31 @@ describe("validateTerms", () => {
 
 describe("computeAgentSizing", () => {
   it("sizes a deposit from calls an hour and a price", () => {
-    expect(computeAgentSizing({ mode: "deposit", calls: "1", deposit: "", price: "0.002", rate: "5", margin: "1.15" })).toEqual({
-      deposit: 402_960_000n,
+    // At Aave v3 USDC's 30-day mean, 4.29%.
+    expect(computeAgentSizing({ mode: "deposit", calls: "1", deposit: "", price: "0.002", rate: "4.29", margin: "1.15" })).toEqual({
+      deposit: 469_650_350n,
       callsPerHourX100: 100n,
       price: 2_000n,
       yearly: 17_520_000n,
+      lastsDaysX100: null,
     });
   });
 
-  it("inverts: 500 fUSD pays 1.24 calls an hour", () => {
-    const result = computeAgentSizing({ mode: "calls", calls: "", deposit: "500", price: "0.002", rate: "5", margin: "1.15" });
-    expect(result?.callsPerHourX100).toBe(124n);
+  it("inverts: 500 fUSD at 4.29% pays 1.06 calls an hour", () => {
+    const result = computeAgentSizing({ mode: "calls", calls: "", deposit: "500", price: "0.002", rate: "4.29", margin: "1.15" });
+    expect(result?.callsPerHourX100).toBe(106n);
   });
 
-  it("refuses a margin under 1, a zero rate or price, and bad numbers", () => {
-    const base = { mode: "deposit" as const, calls: "1", deposit: "", price: "0.002", rate: "5", margin: "1.15" };
+  it("at 0% says how long the deposit lasts instead", () => {
+    // 500 fUSD at one 0.002 call an hour: 0.048 a day, 10,416.66 days.
+    const result = computeAgentSizing({ mode: "deposit", calls: "1", deposit: "500", price: "0.002", rate: "0", margin: "1.15" });
+    expect(result?.lastsDaysX100).toBe(1_041_666n);
+  });
+
+  it("refuses a margin under 1, a zero rate without a deposit, a zero price, and bad numbers", () => {
+    const base = { mode: "deposit" as const, calls: "1", deposit: "", price: "0.002", rate: "4.29", margin: "1.15" };
     expect(computeAgentSizing({ ...base, margin: "0.9" })).toBeNull();
-    expect(computeAgentSizing({ ...base, rate: "0" })).toBeNull();
+    expect(computeAgentSizing({ ...base, rate: "0" })).toBeNull(); // 0% needs a deposit to say how long it lasts
     expect(computeAgentSizing({ ...base, price: "0" })).toBeNull();
     expect(computeAgentSizing({ ...base, calls: "x" })).toBeNull();
   });

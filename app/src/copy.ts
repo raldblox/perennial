@@ -27,8 +27,8 @@ export const nav = {
 export const vaultNames: Record<VaultId, { name: string; rate: string; note: string }> = {
   agent: {
     name: "Standard vault",
-    rate: "5% a year, simulated",
-    note: "Pays a fixed 5% a year from a pre-funded test reserve. Nothing earns it.",
+    rate: "simulated at the Aave v3 USDC rate of 16 November 2026",
+    note: "Pays 4.29% a year, the 30-day mean of Aave v3 USDC on Ethereum on 16 November 2026, from a pre-funded test reserve. Nothing earns it; it is never a return this vault earns.",
   },
   demo: {
     name: "Demo vault",
@@ -43,11 +43,11 @@ export const vaultNames: Record<VaultId, { name: string; rate: string; note: str
 };
 
 export const hero = {
-  label: "QoreChain testnet · the 5% is simulated",
+  label: "QoreChain testnet · yields are simulated at reference rates",
   headlineLines: ["Deposit once.", "The yield pays your agent's calls."],
   headline: "Deposit once. The yield pays your agent's calls.",
   lede:
-    "500 fUSD at 5% a year pays for one 0.002 fUSD inference call every hour, for as long as the 5% holds. Your agent spends only what the deposit earns. The capital stays in the vault, and no classical key, stolen or recovered by a quantum computer, can move it.",
+    "At Aave v3 USDC's 4.29% (its 30-day mean on Ethereum, 16 November 2026), 500 fUSD pays for about one 0.002 fUSD inference call an hour, for as long as that rate holds. Your agent spends only what the deposit earns. The capital stays in the vault, and no classical key, stolen or recovered by a quantum computer, can move it.",
   primary: "Fund an agent",
   secondary: "See a position",
   example: {
@@ -55,14 +55,14 @@ export const hero = {
     deposit: "Deposit",
     depositValue: "500 fUSD",
     rate: "Yield",
-    rateValue: "5% a year = 25 fUSD",
+    rateValue: "4.29% a year = 21.45 fUSD",
     margin: "Margin 1.15",
-    marginValue: "21.74 fUSD spendable a year",
+    marginValue: "18.65 fUSD spendable a year",
     hourly: "Per hour",
-    hourlyValue: "0.00248 fUSD",
+    hourlyValue: "0.00213 fUSD",
     calls: "At 0.002 fUSD a call",
-    callsValue: "1.24 calls an hour",
-    note: "5,000 fUSD pays about twelve an hour. Exactly one an hour needs 402.96 fUSD.",
+    callsValue: "1.06 calls an hour",
+    note: "5,000 fUSD pays about ten an hour. Exactly one an hour needs about 470 fUSD. At 0%, the rate on QoreChain today, a deposit is spent instead: with budget mode, 500 fUSD pays one call an hour for about 10,400 days.",
   },
 } as const;
 
@@ -78,7 +78,15 @@ export const agentCalc = {
   priceHint: "fUSD. A small model call costs about 0.002.",
   deposit: "Deposit",
   rate: "Yield rate",
-  rateHint: "% a year. The standard vault pays a simulated 5%.",
+  rateHint: "% a year. Nothing on QoreChain pays a yield today, so 0% is the assumption here; the others are rates on Ethereum, variable, with their protocols' risks.",
+  presets: "Reference rates",
+  presetZero: "0%, this chain today",
+  preset: (name: string, percent: string) => `${name} ${percent}%`,
+  presetSource: (source: string, date: string) => `30-day means from ${source}, ${date}.`,
+  resultLasts: "The deposit lasts",
+  days: "days",
+  zeroNote: "At 0% nothing is earned: with budget mode the deposit itself pays the calls until it is spent. Income paid in extends it.",
+  formulaZero: "days = deposit ÷ (calls a day × price)",
   margin: "Margin",
   marginHint: "× the break-even deposit. 1.15 lets the yield fall 13% before calls go unpaid.",
   resultDeposit: "Deposit needed",
@@ -174,11 +182,11 @@ export const roles = {
 export const uses = {
   label: "Other uses",
   title: "The same vault pays people, on a schedule.",
-  note: "Deposit at 5% a year with a 1.15 margin. At 4%, add a quarter.",
+  note: "Deposit at Aave v3 USDC's 4.29% (30-day mean, 16 November 2026) with a 1.15 margin. At sUSDS's 3.80%, add an eighth.",
   items: [
-    { title: "A public good's fixed bill", body: "An endpoint or an archive nobody budgets for.", payout: "10 a month", principal: "2,760" },
-    { title: "A maintainer's stipend", body: "If they stop checking in, it passes to the next maintainers.", payout: "100 a month", principal: "27,600" },
-    { title: "A parent's allowance", body: "Paid monthly; passes to the children.", payout: "250 a month", principal: "69,000" },
+    { title: "A public good's fixed bill", body: "An endpoint or an archive nobody budgets for.", payout: "10 a month", principal: "3,217" },
+    { title: "A maintainer's stipend", body: "If they stop checking in, it passes to the next maintainers.", payout: "100 a month", principal: "32,168" },
+    { title: "A parent's allowance", body: "Paid monthly; passes to the children.", payout: "250 a month", principal: "80,420" },
   ],
   unit: "fUSD",
   payoutLabel: "Payout",
@@ -465,6 +473,10 @@ export const panel = {
   lastsReach: (what: string) => `Counts ${what}.`,
   lastsReachBudget: "buffer and principal",
   lastsReachBuffer: "the buffer only",
+  assume: "Assumed yield",
+  assumeSource: "This vault's source",
+  assumeZero: "0%, this chain today",
+  assumeRef: (name: string, percent: string, date: string) => `${name}, ${percent}% (30-day mean, ${date})`,
   income: "Income",
   incomeValue: (perDay: string) => `${perDay} a day: yield plus income paid in over the last 30 days`,
   budget: "Budget mode",

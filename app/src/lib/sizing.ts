@@ -3,7 +3,7 @@
  *
  *   principal = margin × annual payout ÷ yield rate
  *
- * Rates are in basis points (500 = 5%) and the margin in ten-thousandths
+ * Rates are in basis points (429 = 4.29%) and the margin in ten-thousandths
  * (11_500 = 1.15), so every step is integer arithmetic on token units.
  */
 import { ceilDiv } from "./decimal";
@@ -12,8 +12,8 @@ export const BPS = 10_000n;
 export const SECONDS_PER_YEAR = 31_536_000n;
 /** The margin the product uses by default: 15% more principal than break-even. */
 export const DEFAULT_MARGIN = 11_500n;
-/** The testnet yield source pays this fixed rate (simulated). */
-export const DEFAULT_RATE_BPS = 500n;
+/** Until a vault's rate is read: the reference rate its simulated source mirrors (Aave v3 USDC, 30-day mean). */
+export const DEFAULT_RATE_BPS = 429n;
 
 function check(rateBps: bigint, margin: bigint): void {
   if (rateBps <= 0n) throw new RangeError("rate must be above zero");
@@ -70,7 +70,7 @@ export function breakEvenRateBps(principal: bigint, annualPayout: bigint): bigin
   return ceilDiv(annualPayout * BPS, principal);
 }
 
-/** Converts a WAD rate (0.05e18 = 5%) as yield sources report it into basis points, rounding down. */
+/** Converts a WAD rate (0.0429e18 = 4.29%) as yield sources report it into basis points, rounding down. */
 export function wadToBps(rateWad: bigint): bigint {
   return (rateWad * BPS) / 10n ** 18n;
 }

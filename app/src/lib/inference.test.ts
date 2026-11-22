@@ -5,25 +5,27 @@ const UNIT = 1_000_000n; // fUSD has 6 decimals
 const PRICE = 2_000n; // 0.002 fUSD a call
 
 describe("sizing a deposit for inference", () => {
-  it("500 fUSD at 5% with a 1.15 margin pays about one 0.002 call an hour", () => {
-    // 500 × 5% = 25 a year; ÷ 1.15 = 21.74; ÷ 8,760 h = 0.00248 an hour; ÷ 0.002 = 1.24 calls.
-    expect(callsPerHourFor(500n * UNIT, PRICE, 500n)).toBe(124n);
-    expect(formatCalls(124n)).toBe("1.24");
+  it("500 fUSD at Aave v3 USDC's 4.29% with a 1.15 margin pays about one 0.002 call an hour", () => {
+    // 500 × 4.29% = 21.45 a year; ÷ 1.15 = 18.65; ÷ 8,760 h = 0.00213 an hour; ÷ 0.002 = 1.06 calls.
+    expect(callsPerHourFor(500n * UNIT, PRICE, 429n)).toBe(106n);
+    expect(formatCalls(106n)).toBe("1.06");
   });
 
-  it("5,000 fUSD pays about twelve an hour, not ten", () => {
-    expect(callsPerHourFor(5_000n * UNIT, PRICE, 500n)).toBe(1_240n);
+  it("5,000 fUSD pays about ten an hour", () => {
+    expect(callsPerHourFor(5_000n * UNIT, PRICE, 429n)).toBe(1_064n);
   });
 
-  it("one call an hour exactly needs 402.96 fUSD", () => {
-    // 0.002 × 8,760 = 17.52 a year; × 1.15 ÷ 0.05 = 402.96.
-    expect(depositForCalls(100n, PRICE, 500n)).toBe(402_960_000n);
-    expect(callsPerHourFor(402_960_000n, PRICE, 500n)).toBe(100n);
+  it("one call an hour exactly needs about 470 fUSD at 4.29%", () => {
+    // 0.002 × 8,760 = 17.52 a year; × 1.15 ÷ 0.0429 = 469.65035.
+    expect(depositForCalls(100n, PRICE, 429n)).toBe(469_650_350n);
+    expect(callsPerHourFor(469_650_350n, PRICE, 429n)).toBe(100n);
   });
 
   it("is consistent both ways for any rate", () => {
     for (const [calls, rate] of [
-      [100n, 500n],
+      [100n, 429n],
+      [100n, 380n],
+      [100n, 506n],
       [1_000n, 437n],
       [250n, 1_576_800n],
     ] as const) {

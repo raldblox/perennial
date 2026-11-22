@@ -1,7 +1,7 @@
 /**
  * Hash routes, so the build works on any static host without rewrites.
  *   #/                         overview
- *   #/open?vault=demo          fund an agent (vault defaults to the 5% one)
+ *   #/open?vault=demo          fund an agent (vault defaults to the simulated one)
  *   #/positions?vault=…&address=…
  *   #/position/:id             a position in the default vault
  *   #/position/:vault/:id      a position in another vault (noyield, demo)

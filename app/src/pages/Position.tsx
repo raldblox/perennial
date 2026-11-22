@@ -15,6 +15,7 @@ import { actions as actionCopy, common, intervals as intervalCopy, panel as copy
 import { parseDecimal } from "../lib/decimal";
 import { bpsToPercent, validateHeirs, type HeirDraft } from "../lib/heirs";
 import { lastsFor, yieldPerDay, yieldPerHour } from "../lib/inference";
+import { RATES_DATE, REFERENCE_RATES } from "../lib/referenceRates";
 import { formatDuration, formatRelative, formatUtc, INTERVALS, timeline, type Phase } from "../lib/schedule";
 import { useBalances, useBlockClock, useChainNow, useClient, usePosition, useVaultEvents, useVaultInfo } from "../state/queries";
 import { useSession } from "../state/session";
@@ -79,6 +80,8 @@ export function PositionPage({ vaultId, id }: { vaultId: VaultId; id: bigint }) 
   const events = useVaultEvents(vault);
   const clock = useBlockClock();
   const { account } = useSession();
+  /** Which yield the health view assumes: the vault's own source, or a reference rate. */
+  const [assume, setAssume] = useState<string>("source");
 
   if (position.isPending) {
     return (
@@ -114,7 +117,8 @@ export function PositionPage({ vaultId, id }: { vaultId: VaultId; id: bigint }) 
   const rateBps = info.data ? (info.data.rateBps ?? 0n) : null;
   const earnPerHour = rateBps !== null ? yieldPerHour(s.principal, rateBps) : null;
   const paidIn = events.data ? recentIncomePerDay(events.data, id, clock.data) : null;
-  const incomePerDay = rateBps !== null && paidIn !== null ? yieldPerDay(s.principal, rateBps) + paidIn : null;
+  const assumedBps = assume === "source" ? rateBps : assume === "zero" ? 0n : (REFERENCE_RATES.find((ref) => ref.id === assume)?.rateBps ?? rateBps);
+  const incomePerDay = assumedBps !== null && paidIn !== null ? yieldPerDay(s.principal, assumedBps) + paidIn : null;
   const lasts =
     spending && incomePerDay !== null
       ? lastsFor({ spendPerDay: spending.amount, incomePerDay, buffer: s.buffer, principal: s.principal, budgetMode: s.budgetMode })
@@ -160,6 +164,22 @@ export function PositionPage({ vaultId, id }: { vaultId: VaultId; id: bigint }) 
                   </span>
                 </>
               )}
+            </dd>
+          </div>
+          <div>
+            <dt>
+              <label htmlFor="assume-rate">{copy.assume}</label>
+            </dt>
+            <dd>
+              <select id="assume-rate" value={assume} onChange={(e) => setAssume(e.target.value)}>
+                <option value="source">{copy.assumeSource}</option>
+                <option value="zero">{copy.assumeZero}</option>
+                {REFERENCE_RATES.map((ref) => (
+                  <option key={ref.id} value={ref.id}>
+                    {copy.assumeRef(ref.name, ref.mean30dPercent, RATES_DATE)}
+                  </option>
+                ))}
+              </select>
             </dd>
           </div>
           <div>
