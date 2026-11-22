@@ -1,10 +1,11 @@
 import { useId } from "react";
 import { heirErrors, open as copy } from "../copy";
+import { HandleHint, useResolvedHeirs } from "./Handle";
 import { bpsToPercent, evenSplit, MAX_HEIRS, validateHeirs, type HeirDraft } from "../lib/heirs";
 
 export function HeirsEditor({ drafts, onChange, showErrors }: { drafts: HeirDraft[]; onChange: (next: HeirDraft[]) => void; showErrors: boolean }) {
   const id = useId();
-  const result = validateHeirs(drafts);
+  const result = validateHeirs(useResolvedHeirs(drafts).drafts);
   const update = (index: number, patch: Partial<HeirDraft>) => onChange(drafts.map((d, i) => (i === index ? { ...d, ...patch } : d)));
 
   return (
@@ -25,7 +26,7 @@ export function HeirsEditor({ drafts, onChange, showErrors }: { drafts: HeirDraf
                   id={`${id}-a-${index}`}
                   className="mono"
                   value={draft.address}
-                  placeholder="0x…"
+                  placeholder="0x… or @handle"
                   autoComplete="off"
                   spellCheck={false}
                   onChange={(e) => update(index, { address: e.target.value })}
@@ -54,6 +55,7 @@ export function HeirsEditor({ drafts, onChange, showErrors }: { drafts: HeirDraf
                 <span className="visually-hidden"> {index + 1}</span>
               </button>
             </div>
+            <HandleHint input={draft.address} />
             {error ? (
               <span id={errorId} className="error-text">
                 {heirErrors[error]}

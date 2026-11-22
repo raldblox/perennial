@@ -83,6 +83,15 @@ export const config = {
   swapPoolId: env("VITE_SWAP_POOL_ID") ?? "2",
   /** Source code of the deployed contracts, for "read the code" links. */
   sourceUrl: env("VITE_SOURCE_URL") ?? "https://github.com/raldblox/perennial",
+  /**
+   * The QoreX handle registry, for paying or naming an @handle. QoreX and the
+   * dashboard have its address and ed25519 key built in; they are not
+   * published, so @handles stay off until both are configured.
+   */
+  handles:
+    env("VITE_HANDLES_URL") && env("VITE_HANDLES_PUBKEY")
+      ? { baseUrl: env("VITE_HANDLES_URL") as string, registryPubkeyHex: env("VITE_HANDLES_PUBKEY") as string }
+      : null,
 } as const;
 
 export function vaultById(id: string | undefined): VaultConfig {

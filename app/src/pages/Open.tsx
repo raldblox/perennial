@@ -3,6 +3,7 @@ import { decodeEventLog, isAddress, maxUint256, type Hash } from "viem";
 import { vaultAbi } from "../chain/abi";
 import { approve, openPosition, type WriteContext } from "../chain/write";
 import { AccountPanel, useReadiness } from "../components/AccountPanel";
+import { HandleHint, pinSeen, useRecipient, useResolvedHeirs } from "../components/Handle";
 import { HeirsEditor } from "../components/HeirsEditor";
 import { useWritesAllowed } from "../components/Layout";
 import { TxStatus, useTx } from "../components/tx";
@@ -63,7 +64,8 @@ export function Open({ vaultId }: { vaultId: VaultId }) {
   const approveTx = useTx();
   const openTx = useTx();
 
-  const beneficiary = draft.beneficiary.trim() || account?.evm || "";
+  const recipient = useRecipient(draft.beneficiary);
+  const beneficiary = recipient.address.trim() || (draft.beneficiary.trim() === "" ? (account?.evm ?? "") : "");
   const beneficiaryValid = isAddress(beneficiary, { strict: false });
   const beneficiaryKey = useKeyStatus(beneficiaryValid ? beneficiary : undefined);
   const ownerKey = useKeyStatus(account?.evm);
@@ -92,7 +94,8 @@ export function Open({ vaultId }: { vaultId: VaultId }) {
   );
   const capParsed = cap.trim() === "never" ? ({ ok: true, value: maxUint256 } as const) : parseDecimal(cap, DECIMALS);
   const capError = !capParsed.ok;
-  const heirResult = validateHeirs(heirs);
+  const resolvedHeirs = useResolvedHeirs(heirs);
+  const heirResult = validateHeirs(resolvedHeirs.drafts);
   const paysCalls = terms && usage && earns ? callsPerHourFor(terms.amount, usage.price, rateBps) : null;
 
   const set = (patch: Partial<TermsDraft>) => setDraft((d) => ({ ...d, ...patch }));
@@ -102,13 +105,19 @@ export function Open({ vaultId }: { vaultId: VaultId }) {
   const submitTerms = (event: FormEvent) => {
     event.preventDefault();
     setTouched(true);
-    if (terms && !capError) setStep(1);
+    if (terms && !capError) {
+      pinSeen([recipient.resolved]);
+      setStep(1);
+    }
   };
 
   const submitHeirs = (event: FormEvent) => {
     event.preventDefault();
     setHeirsTouched(true);
-    if (heirResult.heirs) setStep(2);
+    if (heirResult.heirs) {
+      pinSeen(resolvedHeirs.resolved);
+      setStep(2);
+    }
   };
 
   const ctx = (onStep: WriteContext["onStep"]): WriteContext => {
@@ -201,6 +210,7 @@ export function Open({ vaultId }: { vaultId: VaultId }) {
                   <span id="beneficiary-hint" className="hint">
                     {copy.agentHint}
                   </span>
+                  <HandleHint input={draft.beneficiary} />
                   {account ? (
                     <span className="row small">
                       <button type="button" className="link-button" onClick={() => set({ beneficiary: account.evm })}>

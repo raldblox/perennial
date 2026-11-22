@@ -348,7 +348,7 @@ export const fund = {
   vault: "Vault",
   vaultHint: "The demo vault's rate is an accelerated test setting, not a return.",
   agent: "Agent account (beneficiary)",
-  agentHint: "The account that signs your agent's spends. It needs a registered ML-DSA-87 key with proven possession.",
+  agentHint: "The account that signs your agent's spends, as a 0x address or a QoreX @handle. It needs a registered ML-DSA-87 key with proven possession.",
   agentUseEvm: "This account",
   agentUseNative: "Its Native account",
   callsPerHour: "Calls an hour",
@@ -419,6 +419,18 @@ export const fund = {
 
 /** Kept for the heirs editor, which is shared by the fund form and the control panel. */
 export const open = fund;
+
+export const handles = {
+  off: "QoreX @handles need the handle registry's address and key, which this deployment does not have. Enter a 0x address.",
+  resolving: "Resolving the @handle",
+  failed: "The @handle could not be resolved.",
+  sourceEvm: "EVM address signed by its owner",
+  sourceNative: "its Native account, signed by its owner",
+  firstSeen: "Verified against the registry's key. First time on this device: it is remembered when you continue.",
+  match: "Verified, and the same address you accepted before on this device.",
+  changed: (before: string, now: string) => `This handle pointed to ${before} when you last used it and now points to ${now}. Check with its owner before using it.`,
+  accept: "Use the new address",
+} as const;
 
 export const heirErrors = {
   "address-missing": "Enter an address.",

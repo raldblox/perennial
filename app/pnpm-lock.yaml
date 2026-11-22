@@ -23,6 +23,9 @@ importers:
       '@qorechain/evm':
         specifier: ^0.14.0
         version: 0.14.0(viem@2.53.1(bufferutil@4.2.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.6.7))
+      '@qorechain/handles':
+        specifier: 0.1.0
+        version: 0.1.0
       '@qorechain/pqc':
         specifier: ^0.2.3
         version: 0.2.3
@@ -57,6 +60,9 @@ importers:
       '@fontsource/source-serif-4':
         specifier: ^5.3.1
         version: 5.3.1
+      '@noble/curves':
+        specifier: ^2.4.0
+        version: 2.4.0
       '@resvg/resvg-js':
         specifier: ^2.6.2
         version: 2.6.2
@@ -916,6 +922,9 @@ packages:
     resolution: {integrity: sha512-IdIJpbmJX8T+ctDnGPv50UGUM2o80TfrWAjU41UjUfIEaWTcTVt64fXQR8V86BDuXRlOuFAa9UiM4RtnyKD5Tg==}
     peerDependencies:
       viem: ^2.0.0
+
+  '@qorechain/handles@0.1.0':
+    resolution: {integrity: sha512-uUqhQ3IzCM9lyizJrKaTP7vp6ockpcf0YDRCWjOFaGy4/09xtNlr+CvfJLHHtEefrTXJhD/lhq/aaswUr18jVA==}
 
   '@qorechain/pqc@0.2.3':
     resolution: {integrity: sha512-YLzcfwkeq9mCyTcFf/BQFB7dsNIkyFcUluByp1zrJ7SRAkPj8cwPmv7jtw5Xeh7K80FgwzlvtBeZb/dzzknWZA==}
@@ -5337,6 +5346,12 @@ snapshots:
     dependencies:
       viem: 2.53.1(bufferutil@4.2.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.6.7)
 
+  '@qorechain/handles@0.1.0':
+    dependencies:
+      '@noble/curves': 2.4.0
+      '@noble/hashes': 2.4.0
+      bech32: 2.0.0
+
   '@qorechain/pqc@0.2.3':
     dependencies:
       '@noble/hashes': 2.4.0
@@ -5830,7 +5845,7 @@ snapshots:
 
   '@scure/bip32@1.7.0':
     dependencies:
-      '@noble/curves': 1.9.1
+      '@noble/curves': 1.9.7
       '@noble/hashes': 1.8.0
       '@scure/base': 1.2.6
 

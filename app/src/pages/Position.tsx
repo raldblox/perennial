@@ -5,6 +5,7 @@ import { explainError } from "../chain/errors";
 import { historyOf, type VaultEvent } from "../chain/events";
 import { approve, distribute, fund, harvest, prepareAction, sendSignedAction, topUp, triggerSuccession, type PreparedAction, type SpendParams, type WriteContext } from "../chain/write";
 import { AccountPanel, useReadiness } from "../components/AccountPanel";
+import { pinSeen, useResolvedHeirs } from "../components/Handle";
 import { HeirsEditor } from "../components/HeirsEditor";
 import { useWritesAllowed } from "../components/Layout";
 import { SignDialog } from "../components/SignDialog";
@@ -382,6 +383,8 @@ function Controls({ vault, id }: { vault: VaultConfig; id: bigint }) {
   const [spendAmount, setSpendAmount] = useState("0.002");
   const [spendRef, setSpendRef] = useState("");
 
+  const resolvedHeirs = useResolvedHeirs(heirDrafts);
+
   if (!position.data) return null;
 
   const s = position.data.state;
@@ -440,7 +443,7 @@ function Controls({ vault, id }: { vault: VaultConfig; id: bigint }) {
     close: closed ?? (!s.ownerCanClose ? actionCopy.unavailable.notClosable : null) ?? locked ?? (!canSign(s.owner) ? actionCopy.unavailable.notRole("owner") : null),
   };
 
-  const heirResult = validateHeirs(heirDrafts);
+  const heirResult = validateHeirs(resolvedHeirs.drafts);
   const topUpParsed = parseDecimal(topUpAmount, DECIMALS);
   const topUpValue = topUpParsed.ok ? topUpParsed.value : 0n;
   const topUpNeedsApproval = (balances.data?.allowance ?? 0n) < topUpValue;
@@ -597,7 +600,10 @@ function Controls({ vault, id }: { vault: VaultConfig; id: bigint }) {
           onSubmit={(e) => {
             e.preventDefault();
             setHeirsTouched(true);
-            if (heirResult.heirs) void startSigned("SetHeirs", s.beneficiary, { heirs: heirResult.heirs });
+            if (heirResult.heirs) {
+              pinSeen(resolvedHeirs.resolved);
+              void startSigned("SetHeirs", s.beneficiary, { heirs: heirResult.heirs });
+            }
           }}
         >
           <HeirsEditor drafts={heirDrafts} onChange={setHeirDrafts} showErrors={heirsTouched} />
