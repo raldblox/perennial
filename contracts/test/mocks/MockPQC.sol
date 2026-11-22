@@ -14,15 +14,24 @@ contract MockPQC is IQorePQC {
         bool registered;
         uint8 algorithmId;
         bool possessionProven;
+        /// @dev A key set as raw bytes by `setRecord`.
         bytes pubkey;
+        /// @dev A key derived from a secret by `register`: kept as its commitment and rebuilt on
+        ///      read, so a status query costs about what the real precompile charges (a flat
+        ///      2,500 gas) instead of 81 storage reads. Callers that cap the gas they forward,
+        ///      such as the Asset Kit's guard, then behave as they would on the chain.
+        bytes32 commitment;
     }
 
     mapping(address => Record) private records;
     mapping(bytes32 => bytes32) private secretOf;
 
-    function publicKey(bytes32 secret) public pure returns (bytes memory pubkey) {
+    function publicKey(bytes32 secret) public pure returns (bytes memory) {
+        return _expand(keccak256(abi.encode("mock-mldsa87-public-key", secret)));
+    }
+
+    function _expand(bytes32 commitment) private pure returns (bytes memory pubkey) {
         pubkey = new bytes(2592);
-        bytes32 commitment = keccak256(abi.encode("mock-mldsa87-public-key", secret));
         assembly {
             mstore(add(pubkey, 32), commitment)
         }
@@ -33,7 +42,8 @@ contract MockPQC is IQorePQC {
     }
 
     function register(address account, bytes32 secret, bool possessionProven) external {
-        setRecord(account, true, 1, publicKey(secret), possessionProven);
+        bytes32 commitment = keccak256(abi.encode("mock-mldsa87-public-key", secret));
+        records[account] = Record(true, 1, possessionProven, "", commitment);
         secretOf[keccak256(publicKey(secret))] = secret;
     }
 
@@ -44,7 +54,7 @@ contract MockPQC is IQorePQC {
         bytes memory pubkey,
         bool possessionProven
     ) public {
-        records[account] = Record(registered, algorithmId, possessionProven, pubkey);
+        records[account] = Record(registered, algorithmId, possessionProven, pubkey, bytes32(0));
     }
 
     function pqcVerify(bytes calldata pubkey, bytes calldata signature, bytes calldata message)
@@ -63,7 +73,8 @@ contract MockPQC is IQorePQC {
         returns (bool, uint8, bytes memory, bool)
     {
         Record storage r = records[account];
-        return (r.registered, r.algorithmId, r.pubkey, r.possessionProven);
+        bytes memory pubkey = r.commitment == bytes32(0) ? r.pubkey : _expand(r.commitment);
+        return (r.registered, r.algorithmId, pubkey, r.possessionProven);
     }
 }
 
