@@ -12,7 +12,8 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "brand": "tsx scripts/brand.ts"
+    "brand": "tsx scripts/brand.ts",
+    "rates": "tsx scripts/rates.ts"
   },
   "dependencies": {
     "@cosmjs/stargate": "^0.39.0",
