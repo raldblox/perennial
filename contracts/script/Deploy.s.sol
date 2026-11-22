@@ -18,7 +18,8 @@ import {IYieldSource} from "../src/interfaces/IYieldSource.sol";
 ///        ASSET           token the vault holds (default: testnet fUSD)
 ///        YIELD_SOURCE    an existing ERC-4626-style source for ASSET; when unset, a
 ///                        MockYieldSource is deployed
-///        MOCK_RATE       yearly rate of the mock source, 18 decimals (default 0.05e18)
+///        MOCK_RATE       yearly rate of the mock source, 18 decimals (default 0.0429e18,
+///                        Aave v3 USDC's 30-day mean on 16 November 2026)
 ///        MOCK_RESERVE    ASSET units to move from the deployer into the mock's reserve,
 ///                        from which it pays its simulated yield (default 0)
 contract Deploy is Script {
@@ -30,7 +31,7 @@ contract Deploy is Script {
         uint256 deployerKey = _deployerKey();
         IERC20 asset = IERC20(vm.envOr("ASSET", TESTNET_FUSD));
         address existingSource = vm.envOr("YIELD_SOURCE", address(0));
-        uint256 mockRate = vm.envOr("MOCK_RATE", uint256(0.05e18));
+        uint256 mockRate = vm.envOr("MOCK_RATE", uint256(0.0429e18));
         uint256 mockReserve = vm.envOr("MOCK_RESERVE", uint256(0));
 
         _requirePrecompiles();
