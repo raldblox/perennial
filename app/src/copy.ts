@@ -193,6 +193,31 @@ export const uses = {
   principalLabel: "Deposit",
 } as const;
 
+export const loop = {
+  label: "How it connects",
+  title: "Three projects, one loop. Each works alone.",
+  items: [
+    {
+      term: "Perennial",
+      body: "This app. Holds the agent's budget and enforces the limit.",
+      link: "https://github.com/raldblox/perennial",
+      linkText: "github.com/raldblox/perennial",
+    },
+    {
+      term: "PQ-402",
+      body: "How one call is paid from the budget: an HTTP 402 answered with an ML-DSA-87 signed payment. Its perennial scheme is a Perennial spend, relayed by a facilitator, with the reference binding the HTTP request. Packages: @pq402/client, @pq402/server, @pq402/core, @pq402/scheme-qorechain.",
+      link: "https://github.com/raldblox/pq-402",
+      linkText: "github.com/raldblox/pq-402",
+    },
+    {
+      term: "Overwinter",
+      body: "The inference service: an OpenAI-compatible endpoint that charges per call through PQ-402.",
+      link: "https://github.com/raldblox/overwinter",
+      linkText: "github.com/raldblox/overwinter",
+    },
+  ],
+} as const;
+
 export const simulated = {
   label: "Real and simulated",
   title: "Real signatures. Simulated yield.",

@@ -2,7 +2,7 @@ import { totals } from "../chain/events";
 import { AgentCalculator } from "../components/AgentCalculator";
 import { Amount, Figure, Notice } from "../components/ui";
 import { addressUrl, config, type VaultConfig } from "../config";
-import { agentCalc, faq, hero, how, live, roles, simulated, uses, vaultNames, why } from "../copy";
+import { agentCalc, faq, hero, how, live, loop, roles, simulated, uses, vaultNames, why } from "../copy";
 import { href } from "../router";
 import { usePrincipalHeld, useSourceReserve, useVaultEvents, useVaultInfo } from "../state/queries";
 
@@ -250,6 +250,26 @@ export function Landing() {
             </tbody>
           </table>
         </div>
+      </section>
+
+      <section className="section" aria-labelledby="loop-title">
+        <div className="section-head">
+          <p className="label">{loop.label}</p>
+          <h2 id="loop-title">{loop.title}</h2>
+        </div>
+        <dl className="qa">
+          {loop.items.map((item) => (
+            <div key={item.term}>
+              <dt>{item.term}</dt>
+              <dd>
+                {item.body}{" "}
+                <a href={item.link} rel="noreferrer">
+                  {item.linkText}
+                </a>
+              </dd>
+            </div>
+          ))}
+        </dl>
       </section>
 
       <section className="section" aria-labelledby="simulated-title">
