@@ -1,11 +1,28 @@
 # AI contract review
 
-QoreChain's dashboard has an AI contract reviewer
+QoreChain's dashboard has an AI contract reviewer, QCAI
 (<https://dashboard.qorechain.io/audit>, described at
 <https://docs.qorechain.io/dashboard/contract-auditor>). It reads pasted
-source only and is **not** a formal audit. This file records each run, every
-finding, and what was done about it: a fix with its commit, or the reason it
-is not a defect and the test that shows it.
+source only and is **not** a formal audit. Perennial's vault went through it
+in two stages: stage 1 on the source before budget mode, then the changes
+below, then stage 2 on the final, deployed source. This file records each
+run, every finding, and what was done about it: a fix with its commit, or the
+reason it is not a defect and the test that shows it.
+
+| Stage | Date | Source reviewed | Result | Public report |
+|---|---|---|---|---|
+| 1 | 16 November 2026 | `PerennialVault.sol` before budget mode and `fund` | 82/100, risk medium, 5 findings, no change required | [PDF](audits/ai-review-2026-11-16-stage1.pdf) · public link: to be added |
+| 2 | to be run | `PerennialVault.sol` as deployed (`contracts/src` is unchanged since `aa9a25d`; deployed from `e1460cb`) | to be added | to be added |
+
+## Changes between the stages
+
+| Commit | Change to `contracts/src` | Why | Tests |
+|---|---|---|---|
+| `9fca35f` | Budget mode (opt-in at open: spends and claims may draw on principal, at most `payoutAmount` per `payoutInterval` in total) and `fund` (anyone pays income into a position's buffer) | the owner's decision to make the budget, not the yield, the reason to deposit ([decision 007](decisions/007-budget-mode-and-income.md)) | `Budget.t.sol`, `Fund.t.sol`, the invariant `invariant_rateLimitAndHoldingsBoundEveryPayout` |
+| `1c787a2` | `harvest` never redeems a source for zero assets | an ERC-4626 vault or Aave market that refuses a zero redemption would otherwise block every claim, spend and close | `ERC4626Source.t.sol: test_strictVault_dustHarvestDoesNotBlockTheClose` (fails without the guard) |
+| `aa9a25d` | Signing domain tag `keccak256("Perennial.Action")` | the first release carries no version label; nothing signed for the earlier tag exists on the deployed vaults | the whole suite signs through `actionMessage` |
+
+No stage-1 finding required a change; each is answered below with its test.
 
 ## Stage 1 · 16 November 2026
 
@@ -29,22 +46,22 @@ No finding required a change to the contract.
 
 ## Stage 2 · the final source
 
-To be run by hand; it needs a signed-in dashboard account.
+To be run by the owner; it needs a signed-in dashboard account.
 
 1. Open <https://dashboard.qorechain.io/audit> and choose **Ethereum
    (EVM/Solidity)**.
-2. Paste **`contracts/src/PerennialVault.sol`**, the whole file, as it is at
-   the commit of the testnet deployment, `e1460cb` (recorded in
-   [deployments.md](deployments.md); `git show e1460cb:contracts/src/PerennialVault.sol`
-   prints it). Paste only that file, as in stage 1.
-3. Save the PDF as `docs/audits/ai-review-<date>-stage2.pdf` and add a
-   section like the one above, with one row per finding.
-4. Optional second run on another day: `contracts/src/adapters/ERC4626Source.sol`
-   and `contracts/src/adapters/AaveV3Source.sol`, the sources other chains
-   would use.
+2. Paste **`contracts/src/PerennialVault.sol`**, the whole file (725 lines),
+   and nothing else, as in stage 1. It is the deployed source: unchanged
+   since `aa9a25d`, deployed from `e1460cb` ([deployments.md](deployments.md)).
+3. Publish the report and add its public link to the table at the top, with
+   the stage-1 public link. Save the PDF as
+   `docs/audits/ai-review-<date>-stage2.pdf`.
+4. Add a section like stage 1's, one row per finding. Verdicts: **fixed**
+   (the commit and the test that now covers it), **not a defect** (the line
+   or decision that shows it, and a test), or **accepted** (why, added to the
+   [threat model](threat-model.md)'s known limitations). A fix to
+   `contracts/src` needs a new deployment, recorded in
+   [deployments.md](deployments.md).
 
-Verdicts: **fixed** (name the commit and the test that now covers it),
-**not a defect** (the line or decision that shows it, and a test), or
-**accepted** (why, added to the [threat model](threat-model.md)'s known
-limitations). A fix to `contracts/src` needs a new deployment; record it in
-[deployments.md](deployments.md).
+Optional, another day: `contracts/src/adapters/ERC4626Source.sol` and
+`contracts/src/adapters/AaveV3Source.sol`, the sources other chains would use.
