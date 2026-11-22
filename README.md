@@ -4,49 +4,66 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Built on QoreChain](https://build.qorechain.io/badge/perennial.svg)](https://build.qorechain.io/p/perennial)
 
-![Perennial: deposit once, the yield pays your agent's calls](docs/assets/cover.png)
+![Perennial: an inference budget an agent spends and nobody can steal](docs/assets/cover.png)
 
-**Deposit once. The yield pays your agent's inference, call by call.**
+**An inference budget your agent spends and nobody can steal.**
 
 ## What it does
 
-Perennial is a vault for an endowment with a living beneficiary. You deposit
-fUSD once; it becomes the principal and is never spent. What it earns lands
-in a buffer, and the beneficiary, typically an AI agent with its own account,
-pays from that buffer for each model call it makes. **At Aave v3 USDC's
-4.29% (its 30-day mean on Ethereum, 16 November 2026), 500 fUSD pays for
-about one 0.002 fUSD call an hour, for as long as that rate holds** (1.06 an
-hour; 5,000 fUSD pays about ten). Nothing on QoreChain pays a yield today, so
-there the assumption is 0%: with budget mode the deposit itself pays the
-calls, and 500 fUSD lasts about 10,400 days at one call an hour. On the
-testnet, every yield is simulated.
+You fund a position for an AI agent. The agent pays for each model call from
+it with `spend()`, signed by its own ML-DSA-87 key and verified inside the
+contract. In budget mode no more than `payoutAmount` leaves the position per
+`payoutInterval`, across spends and claims; a fuzz test and an invariant check
+that bound ([decision 007](docs/decisions/007-budget-mode-and-income.md)).
+Behind every agent is a person: the owner who funds it and can stop it.
+
+For one 0.002 fUSD call an hour, a 500 fUSD position with a 1.46 fUSD monthly
+budget lasts 28.5 years at 0% yield, which is what QoreChain pays a contract
+today. Connected to a yield vault, the budget refills itself and **lasts
+indefinitely when the yield covers the spend**: at Aave v3 USDC's 4.29% (its
+30-day mean on Ethereum, 16 November 2026) the same 500 fUSD earns 21.45 fUSD
+a year against 17.52 spent. On the testnet every yield is simulated.
 
 Reference rates, 30-day means on Ethereum from DefiLlama's yields API on
 16 November 2026 (`pnpm rates` in `app/` prints the current ones):
 Sky savings (sUSDS) 3.80%, Aave v3 USDC supply 4.29%, Ethena sUSDe 5.06%.
 These reference rates are paid on other chains, vary, and carry their protocols' risks; they are the planning assumption for a later deployment on a chain where such vaults exist, which is what the ERC-4626 and Aave adapters are for.
 
-## Why
+## Why nobody can steal it
 
-An agent that pays for its own inference needs money it can spend. Giving it
-a funded wallet means giving it money it can lose. Perennial splits the roles:
+A funded wallet gives everything to whoever holds its key. A position does
+not, because every instruction needs a post-quantum signature checked in the
+contract ([decision 001](docs/decisions/001-pq-signed-actions.md),
+[threat model](docs/threat-model.md)):
 
-- **You, the owner**, deposit once, with a key you can keep offline.
-- **Your agent, the beneficiary**, has its own account and ML-DSA-87 key and
-  can spend only the yield.
-- **Your heirs**, for example you, get the income if the agent stops.
+| Who has what | What they can take |
+|---|---|
+| A recovered or stolen **classical (secp256k1) key** of the agent or the owner, for example by a quantum computer | nothing: no spend, claim, check-in, heir change or close |
+| The agent's stolen **ML-DSA-87 key** | at most one budget window (budget mode) or the buffer, until the owner closes |
+| The owner's ML-DSA-87 key | the right to close, if it was kept at opening |
 
-If the agent's key is stolen, the most it can take is what the buffer holds
-at that moment, which the buffer cap bounds. Never the capital. And because
-every one of those actions needs a post-quantum signature checked inside the
-contract, a classical key, stolen or recovered by a quantum computer, moves
-nothing. There is no admin, no custodian and no upgrade path.
+- **The owner** funds the position with a key kept offline and can close it.
+- **The agent** has its own account and ML-DSA-87 key and can spend only
+  within the limit.
+- **Heirs** receive the budget if the agent stops checking in (succession).
+
+There is no admin, no custodian and no upgrade path.
+
+## How it connects
+
+Three projects, one loop. Each works alone.
+
+| Project | Role | Link |
+|---|---|---|
+| **Perennial** (this repo) | holds the budget and enforces the limit | [app](https://perennial-flax.vercel.app) |
+| **PQ-402** | how one call is paid from it: an HTTP 402 answered with an ML-DSA-87 signed payment; its `perennial` scheme is a Perennial `spend`, relayed by a facilitator, with `ref` binding the HTTP request | [github.com/raldblox/pq-402](https://github.com/raldblox/pq-402), [`@pq402/*` on npm](https://www.npmjs.com/search?q=%40pq402) |
+| **Overwinter** | the inference service: an OpenAI-compatible endpoint that charges per call through PQ-402 | [github.com/raldblox/overwinter](https://github.com/raldblox/overwinter) |
 
 ## How it works
 
 ```mermaid
 flowchart LR
-    O[Owner] -->|deposit once| V[PerennialVault]
+    O[Owner] -->|fund| V[PerennialVault]
     V -->|principal| S[Yield source]
     S -->|harvest: yield only| V
     A[Agent's signed spend] -.->|relayed by anyone| V
@@ -55,15 +72,17 @@ flowchart LR
     V -.->|after succession| H[Heirs]
 ```
 
-1. **Deposit.** The deposit is the position's *principal*. It goes into the
-   yield source and is never paid out.
+1. **Fund.** The deposit is the position's *principal*. It goes into the
+   yield source. In budget mode it is spent at the capped rate; otherwise it
+   is never paid out. Anyone can add income with `fund`.
 2. **Earn.** A harvest, which anyone can call, moves what the principal has
    earned into the position's *buffer*.
 3. **Spend.** For each call, the agent signs
    `spend(positionId, to, amount, ref, deadline, signature)` with its
    ML-DSA-87 key: who is paid, how much, and a reference to the request.
    Anyone can submit it, so the agent needs neither QOR nor an EVM window; the
-   vault pays from the buffer only and emits `Spent(positionId, to, amount, ref)`.
+   vault pays from the buffer (in budget mode, then from the principal, within
+   the limit) and emits `Spent(positionId, to, amount, ref)`.
 4. **Compound.** Yield above the position's buffer cap is added to the
    principal, so it keeps earning and can never be spent. A spend, claim or
    check-in is proof of life; after the check-in period and a grace period of
