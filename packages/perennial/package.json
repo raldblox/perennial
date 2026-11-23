@@ -1,0 +1,51 @@
+{
+  "name": "@pq-apps/perennial",
+  "version": "0.1.0",
+  "description": "Client for Perennial, an on-chain inference budget an AI agent spends with ML-DSA-87 signatures: the vault ABI, signed-action encoding, spend preparation and position reads.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/raldblox/perennial.git",
+    "directory": "packages/perennial"
+  },
+  "homepage": "https://github.com/raldblox/perennial/tree/main/packages/perennial#readme",
+  "keywords": [
+    "qorechain",
+    "post-quantum",
+    "ml-dsa",
+    "ai-agents",
+    "budget"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "prepack": "pnpm build"
+  },
+  "peerDependencies": {
+    "viem": "^2.40.0"
+  },
+  "devDependencies": {
+    "typescript": "~5.9.3",
+    "viem": "~2.53.1",
+    "vitest": "^3.2.4"
+  }
+}
