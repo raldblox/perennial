@@ -60,14 +60,16 @@ import {
   type Hex,
 } from "viem";
 import { english, generateMnemonic, mnemonicToAccount } from "viem/accounts";
+// The vault client, published as @pq-apps/perennial; used here from source.
+import { prepareAction, testnet, vaultAbi } from "../../packages/perennial/src/index.js";
 
 const net = getNetwork("testnet");
 const REST = process.env.QORE_REST_URL?.trim() || net.endpoints.rest;
 const RPC = process.env.QORE_RPC_URL?.trim() || net.endpoints.rpc;
 const EVM_RPC = "https://evm-testnet.qore.host";
 /** Perennial's no-yield vault: budget mode as it runs on QoreChain today. */
-const VAULT = (process.env.PERENNIAL_VAULT?.trim() || "0x76DAC5461fF361f911e5F39810c9455a6180C180") as Address;
-const FUSD = "0x97143B771D34ddb9130b807b135Ae675A5a963CA" as Address;
+const VAULT = (process.env.PERENNIAL_VAULT?.trim() || testnet.vaults.noYield) as Address;
+const FUSD = testnet.asset;
 const MIN_QOR = Number(process.env.MIN_QOR ?? "3");
 const MAX_FEE = 150_000_000_000n;
 const PRIORITY_FEE = 1_000_000_000n;
@@ -81,27 +83,6 @@ const chain = defineChain({
 });
 const reader = createPublicClient({ chain, transport: http() });
 
-const vaultAbi = parseAbi([
-  "struct Heir { address account; uint16 bps; }",
-  "struct OpenParams { uint256 amount; address beneficiary; uint256 payoutAmount; uint64 payoutInterval; uint64 checkInPeriod; uint64 gracePeriod; bool ownerCanClose; Heir[] heirs; uint256 bufferCap; bool budgetMode; }",
-  "struct Position { address owner; address beneficiary; bool ownerCanClose; bool succeeded; bool closed; uint64 payoutInterval; uint64 checkInPeriod; uint64 gracePeriod; uint64 lastCheckIn; uint64 lastPayout; uint256 payoutAmount; uint256 principal; uint256 shares; uint256 buffer; uint256 nonce; uint256 bufferCap; bool budgetMode; uint64 windowStart; uint256 windowSpent; }",
-  "function position(uint256 positionId) view returns (Position)",
-  "function budgetRemaining(uint256 positionId) view returns (uint256)",
-  "function actionMessage(uint256 positionId, uint8 action, uint256 nonce, uint256 deadline, bytes32 paramsHash) view returns (bytes)",
-  "function open(OpenParams p) returns (uint256)",
-  "function fund(uint256 positionId, uint256 amount)",
-  "function triggerSuccession(uint256 positionId)",
-  "function distribute(uint256 positionId) returns (uint256)",
-  "function closeByOwner(uint256 positionId, uint256 deadline, bytes signature)",
-  "event Opened(uint256 indexed positionId, address indexed owner, address indexed beneficiary, uint256 amount, uint256 payoutAmount, uint64 payoutInterval, uint64 checkInPeriod, uint64 gracePeriod, bool ownerCanClose, uint256 bufferCap)",
-  "event Spent(uint256 indexed positionId, address indexed to, uint256 amount, bytes32 indexed ref)",
-  "event Funded(uint256 indexed positionId, address indexed from, uint256 amount)",
-  "event Harvested(uint256 indexed positionId, address indexed caller, uint256 yield)",
-  "event PrincipalDrawn(uint256 indexed positionId, uint256 amount)",
-  "event SuccessionTriggered(uint256 indexed positionId, address indexed caller)",
-  "event Distributed(uint256 indexed positionId, uint256 amount, uint256 periods)",
-  "event Closed(uint256 indexed positionId, address indexed owner, uint256 principalReturned, uint256 yieldPaid)",
-]);
 const erc20Abi = parseAbi(["function balanceOf(address) view returns (uint256)", "function approve(address, uint256) returns (bool)"]);
 
 const fusd = (a: bigint) => `${(Number(a) / 1e6).toFixed(6)} fUSD`;
@@ -164,11 +145,9 @@ async function send(p: Party, label: string, request: Record<string, unknown>): 
   return hash;
 }
 
-async function ownerSignature(owner: Party, positionId: bigint, action: number): Promise<{ deadline: bigint; signature: Hex }> {
-  const pos = await reader.readContract({ address: VAULT, abi: vaultAbi, functionName: "position", args: [positionId] });
-  const deadline = (await reader.getBlock()).timestamp + 600n;
-  const message = await reader.readContract({ address: VAULT, abi: vaultAbi, functionName: "actionMessage", args: [positionId, action, pos.nonce, deadline, `0x${"00".repeat(32)}`] });
-  return { deadline, signature: toHex(mldsaSign(owner.acc.pqc.secretKey, Uint8Array.from(Buffer.from(message.slice(2), "hex")))) };
+async function ownerSignature(owner: Party, positionId: bigint, action: "Close"): Promise<{ deadline: bigint; signature: Hex }> {
+  const prepared = await prepareAction(reader as never, VAULT, { id: positionId, action, signer: owner.address });
+  return { deadline: prepared.deadline, signature: toHex(mldsaSign(owner.acc.pqc.secretKey, Uint8Array.from(Buffer.from(prepared.message.slice(2), "hex")))) };
 }
 
 /** Whether the account has an ML-KEM-1024 key in the chain's registry. */
@@ -335,7 +314,7 @@ async function close(positionArg?: string) {
   if (!positionArg) throw new Error("close <position>");
   const owner = await party("owner");
   await guard(owner, evmWindowCost({ gas: 400_000n, maxFeePerGas: MAX_FEE }));
-  const { deadline, signature } = await ownerSignature(owner, BigInt(positionArg), 3);
+  const { deadline, signature } = await ownerSignature(owner, BigInt(positionArg), "Close");
   await send(owner, `owner closed position ${positionArg} (ML-DSA-87 signed)`, { address: VAULT, abi: vaultAbi, functionName: "closeByOwner", args: [BigInt(positionArg), deadline, signature], gas: 450_000n });
 }
 

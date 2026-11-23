@@ -331,6 +331,9 @@ app/
   src/lib/                        exact amounts, sizing, schedule, heirs, swaps
   src/pages/, src/components/     the screens
   scripts/brand.ts                cover image, link preview and icons
+packages/perennial/                 @pq-apps/perennial: vault ABI, signed-action encoding,
+                                  spend preparation and position reads, used by the app
+                                  and the scripts
 docs/
   qorechain-notes.md              what the protocol relies on from the chain
   deployments.md                  addresses, transactions, compiler settings
