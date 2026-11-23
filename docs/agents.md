@@ -1,9 +1,12 @@
 # Set up an agent, end to end
 
 An AI agent with an inference budget it spends and nobody can steal: its
-owner funds a Perennial position, the agent pays each model call from it
-with its own ML-DSA-87 key through PQ-402, and an Overwinter service sells
-the inference. Every step below runs on the QoreChain testnet
+owner funds a Perennial position, and the agent pays each model call from it
+with its own ML-DSA-87 key. For the calls, this guide uses two separate
+projects: a pay-per-request protocol that turns an HTTP 402 into a signed
+Perennial `spend` ([PQ-402](https://github.com/raldblox/pq-402)), and an
+inference service with an OpenAI-compatible endpoint that charges through it
+([Overwinter](https://github.com/raldblox/overwinter)). Every step below runs on the QoreChain testnet
 (`qorechain-diana`, EVM chain id 9800); `contracts/scripts/agent-lifecycle.ts`
 runs them all in one go.
 
