@@ -1,5 +1,6 @@
 /// <reference types="vitest" />
 import react from "@vitejs/plugin-react";
+import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 
@@ -20,14 +21,16 @@ const proxy = {
   ...forward("/qore/rpc", "https://rpc-testnet.qore.host"),
 };
 
+const localClient = fileURLToPath(new URL("../packages/perennial/src/index.ts", import.meta.url));
+
 export default defineConfig({
   plugins: [react()],
-  // The vault client lives in packages/perennial (published as @pq-apps/perennial); the app
-  // builds it from source, against the app's own viem.
-  resolve: {
-    alias: { "@pq-apps/perennial": fileURLToPath(new URL("../packages/perennial/src/index.ts", import.meta.url)) },
-    dedupe: ["viem"],
-  },
+  // The vault client is @pq-apps/perennial from npm. In a checkout of the whole repository
+  // the app builds it from source instead, so a change there shows here at once; a host that
+  // uploads only app/ (Vercel) uses the published package.
+  resolve: existsSync(localClient)
+    ? { alias: { "@pq-apps/perennial": localClient }, dedupe: ["viem"] }
+    : { dedupe: ["viem"] },
   server: { port: 5173, proxy },
   preview: { port: 4173, proxy },
   // The signer chunk carries the QoreChain SDK and loads only when an account is unlocked.
