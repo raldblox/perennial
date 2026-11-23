@@ -26,7 +26,7 @@ export const nav = {
 
 export const vaultNames: Record<VaultId, { name: string; rate: string; note: string }> = {
   agent: {
-    name: "Standard vault",
+    name: "Simulated 4.29% vault",
     rate: "simulated at the Aave v3 USDC rate of 16 November 2026",
     note: "Pays 4.29% a year, the 30-day mean of Aave v3 USDC on Ethereum on 16 November 2026, from a pre-funded test reserve. Nothing earns it; it is never a return this vault earns.",
   },
@@ -195,24 +195,18 @@ export const uses = {
 } as const;
 
 export const loop = {
-  label: "How it connects",
-  title: "Three projects, one loop. Each works alone.",
+  label: "Works with",
+  title: "Works with",
   items: [
     {
-      term: "Perennial",
-      body: "This app. Holds the agent's budget and enforces the limit.",
-      link: "https://github.com/raldblox/perennial",
-      linkText: "github.com/raldblox/perennial",
-    },
-    {
-      term: "PQ-402",
-      body: "How one call is paid from the budget: an HTTP 402 answered with an ML-DSA-87 signed payment. Its perennial scheme is a Perennial spend, relayed by a facilitator, with the reference binding the HTTP request. Packages: @pq402/client, @pq402/server, @pq402/core, @pq402/scheme-qorechain.",
+      term: "A pay-per-request protocol for APIs",
+      body: "An agent answers an HTTP 402 with an ML-DSA-87 signed payment; one of its payment schemes is a spend from the agent's position here. That protocol is PQ-402, a separate project.",
       link: "https://github.com/raldblox/pq-402",
       linkText: "github.com/raldblox/pq-402",
     },
     {
-      term: "Overwinter",
-      body: "The inference service: an OpenAI-compatible endpoint that charges per call through PQ-402.",
+      term: "An inference service paid per call",
+      body: "An OpenAI-compatible endpoint that charges each call through that protocol, so an agent can buy inference from its budget here. That service is Overwinter, a separate project.",
       link: "https://github.com/raldblox/overwinter",
       linkText: "github.com/raldblox/overwinter",
     },
@@ -220,12 +214,13 @@ export const loop = {
 } as const;
 
 export const simulated = {
-  label: "Real and simulated",
-  title: "Real signatures. Simulated yield.",
+  label: "The three testnet vaults",
+  title: "One contract, three yield sources. Every rate is simulated.",
   items: [
-    { term: "Real", body: "The vaults, the ML-DSA-87 checks, spends, the schedule, check-ins and succession, all on the QoreChain testnet." },
-    { term: "Simulated", body: "The yield. Each vault's principal sits in a mock that pays a fixed rate from a reserve someone funded. Nothing on QoreChain pays a real return a contract can collect yet." },
-    { term: "Accelerated", body: "The demo vault's rate, 15,768% a year, exists so a small deposit visibly pays several calls a minute. It is a test setting, never a return." },
+    { term: "Real", body: "The vaults, the ML-DSA-87 checks in the contract, spends, budgets, check-ins and succession, all on the QoreChain testnet." },
+    { term: "No-yield vault", body: "Its source pays nothing, which is what QoreChain offers a contract today. Budget mode spends the deposit at its capped rate." },
+    { term: "Simulated 4.29% vault", body: "Its source pays 4.29% a year, the 30-day mean of Aave v3 USDC on Ethereum on 16 November 2026, from a reserve the deployer funded. Never a return this vault earns." },
+    { term: "Demo vault", body: "Its source pays 15,768% a year, so a 20 fUSD budget pays several 0.002 fUSD calls a minute in a demonstration. A test setting, never a return." },
     { term: "Tokens", body: "fUSD is the testnet's dollar token. It has no value." },
   ],
 } as const;

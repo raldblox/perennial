@@ -208,25 +208,6 @@ export function Landing() {
       </section>
 
 
-      <section className="section" aria-labelledby="loop-title">
-        <div className="section-head">
-          <h2 id="loop-title">{loop.title}</h2>
-        </div>
-        <dl className="qa">
-          {loop.items.map((item) => (
-            <div key={item.term}>
-              <dt>{item.term}</dt>
-              <dd>
-                {item.body}{" "}
-                <a href={item.link} rel="noreferrer">
-                  {item.linkText}
-                </a>
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </section>
-
       <section className="section" aria-labelledby="simulated-title">
         <div className="section-head">
           <h2 id="simulated-title">{simulated.title}</h2>
@@ -250,6 +231,24 @@ export function Landing() {
             <div key={item.q}>
               <dt>{item.q}</dt>
               <dd>{item.a}</dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+      <section className="section" aria-labelledby="loop-title">
+        <div className="section-head">
+          <h2 id="loop-title">{loop.title}</h2>
+        </div>
+        <dl className="qa">
+          {loop.items.map((item) => (
+            <div key={item.term}>
+              <dt>{item.term}</dt>
+              <dd>
+                {item.body}{" "}
+                <a href={item.link} rel="noreferrer">
+                  {item.linkText}
+                </a>
+              </dd>
             </div>
           ))}
         </dl>
