@@ -1,5 +1,6 @@
 /// <reference types="vitest" />
 import react from "@vitejs/plugin-react";
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 
 // The chain's REST API and CometBFT RPC send no CORS headers, so a page can
@@ -21,6 +22,12 @@ const proxy = {
 
 export default defineConfig({
   plugins: [react()],
+  // The vault client lives in packages/perennial (published as @pq-apps/perennial); the app
+  // builds it from source, against the app's own viem.
+  resolve: {
+    alias: { "@pq-apps/perennial": fileURLToPath(new URL("../packages/perennial/src/index.ts", import.meta.url)) },
+    dedupe: ["viem"],
+  },
   server: { port: 5173, proxy },
   preview: { port: 4173, proxy },
   // The signer chunk carries the QoreChain SDK and loads only when an account is unlocked.

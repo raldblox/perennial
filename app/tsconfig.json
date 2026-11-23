@@ -15,7 +15,12 @@
     "jsx": "react-jsx",
     "noEmit": true,
     "useDefineForClassFields": true,
-    "types": ["vite/client", "vitest/globals", "@testing-library/jest-dom", "node"]
+    "types": ["vite/client", "vitest/globals", "@testing-library/jest-dom", "node"],
+    "paths": {
+      "@pq-apps/perennial": ["../packages/perennial/src/index.ts"],
+      "viem": ["./node_modules/viem"],
+      "viem/*": ["./node_modules/viem/*"]
+    }
   },
   "include": ["src", "scripts", "vite.config.ts", "eslint.config.js"]
 }
