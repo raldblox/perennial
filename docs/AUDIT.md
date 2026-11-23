@@ -11,8 +11,8 @@ reason it is not a defect and the test that shows it.
 
 | Stage | Date | Source reviewed | Result | Public report |
 |---|---|---|---|---|
-| 1 | 16 November 2026 | `PerennialVault.sol` before budget mode and `fund` | 82/100, risk medium, 5 findings, no change required | [PDF](audits/ai-review-2026-11-16-stage1.pdf) · public link: to be added |
-| 2 | to be run | `PerennialVault.sol` as deployed (`contracts/src` is unchanged since `aa9a25d`; deployed from `e1460cb`) | to be added | to be added |
+| 1 | 16 November 2026 | `PerennialVault.sol` before budget mode and `fund` | 82/100, risk medium, 5 findings, no change required | [PDF](audits/ai-review-2026-11-16-stage1.pdf) · public report: *link to be added* |
+| 2 | 23 November 2026 | the deployed source, flattened with its libraries ([PerennialVault.flattened.sol](audits/PerennialVault.flattened.sol)) | 72/100, risk medium, 5 findings, no change required | [PDF](audits/ai-review-2026-11-23-stage2.pdf) · public report: *link to be added* |
 
 ## Changes between the stages
 
@@ -44,30 +44,50 @@ is in `contracts/test/` and passes (`forge test`).
 
 No finding required a change to the contract.
 
-## Stage 2 · the final source
+## Stage 2 · 23 November 2026
 
-To be run by the owner; it needs a signed-in dashboard account.
+- Setting: Ethereum (EVM/Solidity). File reviewed:
+  [audits/PerennialVault.flattened.sol](audits/PerennialVault.flattened.sol),
+  the deployed source (`contracts/src` unchanged since `aa9a25d`, deployed
+  from `e1460cb`) flattened with `forge flatten`, so `PQCAuth`, the precompile
+  and yield-source interfaces and OpenZeppelin's `SafeERC20` and
+  `ReentrancyGuard` were in view.
+- Result: score 72/100, risk "medium", 5 findings.
+- Report: [audits/ai-review-2026-11-23-stage2.pdf](audits/ai-review-2026-11-23-stage2.pdf).
+
+The score is lower than stage 1's 82 because more was reviewed: the contract
+grew by budget mode, `spend` and `fund` (725 lines), and the flattened file
+adds about 850 lines of library code, one finding of which is about a library
+interface the vault does not use. The findings are the same kinds as in
+stage 1, now asked of the budget code; none is a defect.
+
+The report's line numbers do not match the flattened file (its line 580 is
+inside OpenZeppelin's `IERC1363`, 630 inside `SafeERC20`), so each finding is
+mapped by the function it names. Tests are in `contracts/test/` and pass.
+
+| # | Finding (as reported) | Severity | Verdict | Reason and evidence |
+|---|---|---|---|---|
+| 1 | Missing access control on `closeByOwner` | High | Not a defect | As in stage 1: access is the owner's ML-DSA-87 signature, checked by `_authorize(…, pos.owner, Action.Close, …)` against the key registered for the owner, and the close reverts unless the owner kept the right at opening. `msg.sender` is deliberately irrelevant, so a relayer can submit the owner's signature and the principal still goes to the owner. In budget mode too: `AuditFindingsStage2.t.sol: test_stage2_finding1_closeNeedsTheOwnersSignatureInBudgetMode`; stage 1's `test_finding1_aCallerWithoutTheOwnersSignatureCannotClose` and `test_finding1_aRelayedOwnerSignatureStillPaysTheOwner`. |
+| 2 | Potential overflow in budget calculation | Medium | Not a defect | The subtraction is `payoutAmount - windowSpent` in `_useBudget`, `_settleBudget` and `budgetRemaining`. Solidity 0.8.28 checks it, and it cannot underflow: `windowSpent` only grows in `_useBudget`, by at most what is left (larger amounts revert with `BudgetExceeded`), and in `_settleBudget`, by at most what is left; `_rollWindow` resets it to zero; `payoutAmount` is fixed at opening. Fuzzed over six spends of up to twice the budget each across up to six windows: `windowSpent <= payoutAmount` after every step and `budgetRemaining` always answers, `testFuzz_stage2_finding2_windowSpentNeverExceedsTheBudget`; the invariant `invariant_rateLimitAndHoldingsBoundEveryPayout` holds over random sequences of every action. |
+| 3 | Front-running in budget mode | Medium | Not a defect | A spend's signature covers `keccak256(abi.encode(to, amount, ref))`, the position, the nonce and the deadline. A front-runner can only submit the agent's own spend earlier: redirected, resized or re-referenced it fails the signature check; submitted as signed it pays the signed recipient, counts once against the budget, and the agent's own submission then fails on the consumed nonce. `test_stage2_finding3_aFrontRunSpendPaysOnlyWhatWasSignedOnce`, `Spend.t.sol: test_spend_canBeRelayedByAnyoneAndStillPaysWhoWasSigned`, `test_spend_bindsRecipientAmountAndRef`, `test_spend_cannotBeReplayed`. A commit-reveal would add a step without protecting anything. |
+| 4 | Unbounded loop in heir storage | Low | Not a defect | `MAX_HEIRS` is 16 and longer lists revert with `TooManyHeirs` before `_storeHeirs` loops: `test_stage2_finding4_seventeenHeirsRevertInBudgetMode`, `test_finding4_seventeenHeirsRevertOnSetHeirs`; 16 heirs cost under 1,000,000 gas, `test_finding4_sixteenHeirsFitInABoundedGasCost`. A mapping would not bound anything further and would make the frozen, weighted list harder to pay out in order. |
+| 5 | ERC-1363 compliance | Info | Not applicable | `IERC1363` is in the file only because flattening includes OpenZeppelin's `SafeERC20`, which declares it for its `*AndCall` helpers. The vault calls only `safeTransfer`, `safeTransferFrom` and `forceApprove`; nothing in `contracts/src` refers to ERC-1363 (`git grep 1363 contracts/src` finds nothing), and a position is not a token, by design (stage 1, finding 5). |
+
+No finding required a change to the contract.
+
+## Running a review again
 
 1. Open <https://dashboard.qorechain.io/audit> and choose **Ethereum
    (EVM/Solidity)**.
-2. Paste **`docs/audits/PerennialVault.flattened.sol`**, the whole file
-   (1,578 lines), and nothing else. It is the deployed source with every
-   dependency inline (`PQCAuth`, the PQC precompile and yield-source
-   interfaces, OpenZeppelin's `SafeERC20` and `ReentrancyGuard`), so the
-   reviewer sees the signature checks and token handling it would otherwise
-   have to guess. Made with `forge flatten src/PerennialVault.sol` from
-   `contracts/src` as deployed (unchanged since `aa9a25d`, deployed from
-   `e1460cb`, [deployments.md](deployments.md)); it compiles on its own with
-   the deployment's settings.
-3. Publish the report and add its public link to the table at the top, with
-   the stage-1 public link. Save the PDF as
-   `docs/audits/ai-review-<date>-stage2.pdf`.
-4. Add a section like stage 1's, one row per finding. Verdicts: **fixed**
-   (the commit and the test that now covers it), **not a defect** (the line
-   or decision that shows it, and a test), or **accepted** (why, added to the
+2. Flatten the source: `forge flatten src/PerennialVault.sol -o ../docs/audits/PerennialVault.flattened.sol`
+   in `contracts/`, and paste the whole file, nothing else.
+3. Save the PDF in `docs/audits/`, publish the report and add its link and a
+   section like the ones above, one row per finding. Verdicts: **fixed** (the
+   commit and the test that now covers it), **not a defect** (the line or
+   decision that shows it, and a test), or **accepted** (why, added to the
    [threat model](threat-model.md)'s known limitations). A fix to
    `contracts/src` needs a new deployment, recorded in
    [deployments.md](deployments.md).
 
-Optional, another day: `contracts/src/adapters/ERC4626Source.sol` and
+Optional: `contracts/src/adapters/ERC4626Source.sol` and
 `contracts/src/adapters/AaveV3Source.sol`, the sources other chains would use.

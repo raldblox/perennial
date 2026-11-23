@@ -138,7 +138,7 @@ against is in the [threat model](docs/threat-model.md).
 
 | Part | State |
 |---|---|
-| Contracts | One `PerennialVault`: signed `spend`, a per-position buffer cap, opt-in budget mode, `fund`, check-in, heirs and succession, close by the owner. 183 Foundry tests (unit, fuzz, invariant), optional fork tests against Aave and sDAI on Ethereum, and tests against the QoreChain Asset Kit's ERC-4626 vault |
+| Contracts | One `PerennialVault`: signed `spend`, a per-position buffer cap, opt-in budget mode, `fund`, check-in, heirs and succession, close by the owner. 187 Foundry tests (unit, fuzz, invariant), optional fork tests against Aave and sDAI on Ethereum, and tests against the QoreChain Asset Kit's ERC-4626 vault |
 | Testnet | Three vaults on `qorechain-diana` (above), a demo position with real spends, and a recorded agent lifecycle |
 | Web app | Fund an agent, budget mode, income paid in, QoreX @handles for beneficiaries and heirs, a control panel per position, an in-page QOR to fUSD swap |
 | Review | Not audited by a person. Two-stage AI review below |
@@ -174,10 +174,15 @@ the full record, with the tests behind every answer, is
 
 | Stage | Source | Result | Report |
 |---|---|---|---|
-| 1, 16 November 2026 | before budget mode | 82/100, 5 findings | [PDF](docs/audits/ai-review-2026-11-16-stage1.pdf) · public link to be added |
-| 2 | the deployed source | to be added | to be added |
+| 1, 16 November 2026 | before budget mode | 82/100, 5 findings, no change required | [PDF](docs/audits/ai-review-2026-11-16-stage1.pdf) · public report: *link to be added* |
+| 2, 23 November 2026 | the deployed source, flattened with its libraries | 72/100, 5 findings, no change required | [PDF](docs/audits/ai-review-2026-11-23-stage2.pdf) · public report: *link to be added* |
 
-Changelog between the stages, and what each stage-1 finding led to:
+Stage 2 reviewed more code than stage 1 (budget mode, `spend`, `fund`, and the
+libraries the flattened file includes), hence the lower score; its findings
+repeat stage 1's kinds for the budget code, plus one about a library
+interface the vault does not use.
+
+Changelog between the stages, and what each finding led to:
 
 | Finding (stage 1) | Outcome | Change or reason |
 |---|---|---|
@@ -186,6 +191,11 @@ Changelog between the stages, and what each stage-1 finding led to:
 | Medium: front-running `claim` | no change | a claim pays only the beneficiary and works once; `test_finding3_aFrontRunClaimStillPaysOnlyTheBeneficiary` |
 | Low: unbounded loop in `_storeHeirs` | no change | 16 heirs at most; `test_finding4_seventeenHeirsRevertOnSetHeirs` |
 | Info: no ERC-20/721 interface | no change | a position is not a transferable token, by design |
+| Stage 2, High: access control on `closeByOwner` | no change | the owner's ML-DSA-87 signature, also in budget mode; `test_stage2_finding1_closeNeedsTheOwnersSignatureInBudgetMode` |
+| Stage 2, Medium: overflow in the budget calculation | no change | `windowSpent` never exceeds `payoutAmount`; fuzzed, `testFuzz_stage2_finding2_windowSpentNeverExceedsTheBudget`, and the rate-limit invariant |
+| Stage 2, Medium: front-running in budget mode | no change | a spend pays only the signed recipient, amount and ref, once; `test_stage2_finding3_aFrontRunSpendPaysOnlyWhatWasSignedOnce` |
+| Stage 2, Low: unbounded loop in heir storage | no change | 16 heirs at most; `test_stage2_finding4_seventeenHeirsRevertInBudgetMode` |
+| Stage 2, Info: ERC-1363 compliance | not applicable | an OpenZeppelin interface pulled in by flattening; the vault does not use it |
 | (not a finding) | `9fca35f` | budget mode and `fund` added |
 | (not a finding) | `1c787a2` | `harvest` never redeems for zero assets, so a strict source cannot block a close |
 | (not a finding) | `aa9a25d` | signing domain tag without a version label |
