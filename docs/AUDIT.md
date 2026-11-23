@@ -50,9 +50,15 @@ To be run by the owner; it needs a signed-in dashboard account.
 
 1. Open <https://dashboard.qorechain.io/audit> and choose **Ethereum
    (EVM/Solidity)**.
-2. Paste **`contracts/src/PerennialVault.sol`**, the whole file (725 lines),
-   and nothing else, as in stage 1. It is the deployed source: unchanged
-   since `aa9a25d`, deployed from `e1460cb` ([deployments.md](deployments.md)).
+2. Paste **`docs/audits/PerennialVault.flattened.sol`**, the whole file
+   (1,578 lines), and nothing else. It is the deployed source with every
+   dependency inline (`PQCAuth`, the PQC precompile and yield-source
+   interfaces, OpenZeppelin's `SafeERC20` and `ReentrancyGuard`), so the
+   reviewer sees the signature checks and token handling it would otherwise
+   have to guess. Made with `forge flatten src/PerennialVault.sol` from
+   `contracts/src` as deployed (unchanged since `aa9a25d`, deployed from
+   `e1460cb`, [deployments.md](deployments.md)); it compiles on its own with
+   the deployment's settings.
 3. Publish the report and add its public link to the table at the top, with
    the stage-1 public link. Save the PDF as
    `docs/audits/ai-review-<date>-stage2.pdf`.
