@@ -9,10 +9,12 @@ below, then stage 2 on the final, deployed source. This file records each
 run, every finding, and what was done about it: a fix with its commit, or the
 reason it is not a defect and the test that shows it.
 
-| Stage | Date | Source reviewed | Result | Public report |
+| Stage | Date | Source reviewed | Result | Report (PDF) |
 |---|---|---|---|---|
-| 1 | 16 November 2026 | `PerennialVault.sol` before budget mode and `fund` | 82/100, risk medium, 5 findings, no change required | [PDF](audits/ai-review-2026-11-16-stage1.pdf) · public report: *link to be added* |
-| 2 | 23 November 2026 | the deployed source, flattened with its libraries ([PerennialVault.flattened.sol](audits/PerennialVault.flattened.sol)) | 72/100, risk medium, 5 findings, no change required | [PDF](audits/ai-review-2026-11-23-stage2.pdf) · public report: *link to be added* |
+| 1 | 16 November 2026 | `PerennialVault.sol` before budget mode and `fund` | 82/100, risk medium, 5 findings, no change required | [ai-review-2026-11-16-stage1.pdf](https://github.com/raldblox/perennial/blob/main/docs/audits/ai-review-2026-11-16-stage1.pdf) |
+| 2 | 23 November 2026 | the deployed source, flattened with its libraries ([PerennialVault.flattened.sol](audits/PerennialVault.flattened.sol)) | 72/100, risk medium, 5 findings, no change required | [ai-review-2026-11-23-stage2.pdf](https://github.com/raldblox/perennial/blob/main/docs/audits/ai-review-2026-11-23-stage2.pdf) |
+
+The dashboard issues each report as a PDF, not as a public link; both PDFs are committed in this repository and linked here.
 
 ## Changes between the stages
 
@@ -81,7 +83,7 @@ No finding required a change to the contract.
    (EVM/Solidity)**.
 2. Flatten the source: `forge flatten src/PerennialVault.sol -o ../docs/audits/PerennialVault.flattened.sol`
    in `contracts/`, and paste the whole file, nothing else.
-3. Save the PDF in `docs/audits/`, publish the report and add its link and a
+3. Save the PDF in `docs/audits/`, link it from the table above and add a
    section like the ones above, one row per finding. Verdicts: **fixed** (the
    commit and the test that now covers it), **not a defect** (the line or
    decision that shows it, and a test), or **accepted** (why, added to the

@@ -172,10 +172,12 @@ The vault went through QoreChain's AI contract reviewer (QCAI) in two stages;
 the full record, with the tests behind every answer, is
 [docs/AUDIT.md](docs/AUDIT.md).
 
-| Stage | Source | Result | Report |
+| Stage | Source | Result | Report (PDF) |
 |---|---|---|---|
-| 1, 16 November 2026 | before budget mode | 82/100, 5 findings, no change required | [PDF](docs/audits/ai-review-2026-11-16-stage1.pdf) · public report: *link to be added* |
-| 2, 23 November 2026 | the deployed source, flattened with its libraries | 72/100, 5 findings, no change required | [PDF](docs/audits/ai-review-2026-11-23-stage2.pdf) · public report: *link to be added* |
+| 1, 16 November 2026 | before budget mode | 82/100, 5 findings, no change required | [ai-review-2026-11-16-stage1.pdf](https://github.com/raldblox/perennial/blob/main/docs/audits/ai-review-2026-11-16-stage1.pdf) |
+| 2, 23 November 2026 | the deployed source, flattened with its libraries | 72/100, 5 findings, no change required | [ai-review-2026-11-23-stage2.pdf](https://github.com/raldblox/perennial/blob/main/docs/audits/ai-review-2026-11-23-stage2.pdf) |
+
+The dashboard issues each report as a PDF, not as a public link; both PDFs are committed in this repository and linked here.
 
 Stage 2 reviewed more code than stage 1 (budget mode, `spend`, `fund`, and the
 libraries the flattened file includes), hence the lower score; its findings
