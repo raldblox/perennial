@@ -6,34 +6,39 @@
 
 ![Perennial: an inference budget an agent spends and nobody can steal](docs/assets/cover.png)
 
-**An inference budget your agent spends and nobody can steal.**
+**An inference budget your AI agent spends and nobody can steal.**
+
+## Who it is for
+
+Teams running AI agents that pay for their own inference. An agent needs
+money to work, and the usual way to give it money is a funded wallet. A
+wallet gives the whole balance to whoever holds its key: a leaked key, a
+compromised agent, or, later, a quantum computer that recovers the classical
+key from the chain.
 
 ## What it does
 
-You fund a position for an AI agent. The agent pays for each model call from
-it with `spend()`, signed by its own ML-DSA-87 key and verified inside the
-contract. In budget mode no more than `payoutAmount` leaves the position per
-`payoutInterval`, across spends and claims; a fuzz test and an invariant check
-that bound ([decision 007](docs/decisions/007-budget-mode-and-income.md)).
-Behind every agent is a person: the owner who funds it and can stop it.
+The owner, a person, funds a **position** for the agent. The agent pays for
+each model call from it with `spend()`, signed by its own ML-DSA-87 key and
+verified inside the contract. In budget mode no more than `payoutAmount`
+leaves the position per `payoutInterval`, across spends and claims; a fuzz
+test and an invariant check that bound
+([decision 007](docs/decisions/007-budget-mode-and-income.md)). The owner can
+close the position with one signature. If the agent goes silent, the budget
+passes to its heirs.
 
 For one 0.002 fUSD call an hour, a 500 fUSD position with a 1.46 fUSD monthly
 budget lasts 28.5 years at 0% yield, which is what QoreChain pays a contract
-today. Connected to a yield vault, the budget refills itself and **lasts
+today. Connected to a yield vault the budget refills itself and **lasts
 indefinitely when the yield covers the spend**: at Aave v3 USDC's 4.29% (its
-30-day mean on Ethereum, 16 November 2026) the same 500 fUSD earns 21.45 fUSD
-a year against 17.52 spent. On the testnet every yield is simulated.
-
-Reference rates, 30-day means on Ethereum from DefiLlama's yields API on
-16 November 2026 (`pnpm rates` in `app/` prints the current ones):
-Sky savings (sUSDS) 3.80%, Aave v3 USDC supply 4.29%, Ethena sUSDe 5.06%.
-These reference rates are paid on other chains, vary, and carry their protocols' risks; they are the planning assumption for a later deployment on a chain where such vaults exist, which is what the ERC-4626 and Aave adapters are for.
+30-day mean on Ethereum, 16 November 2026) the same 500 fUSD earns 21.45 fUSD a
+year against 17.52 spent. Anyone can also pay income into a position (`fund`),
+so fees or revenue can keep an agent running.
 
 ## Why nobody can steal it
 
-A funded wallet gives everything to whoever holds its key. A position does
-not, because every instruction needs a post-quantum signature checked in the
-contract ([decision 001](docs/decisions/001-pq-signed-actions.md),
+Every instruction needs a post-quantum signature checked in the contract
+([decision 001](docs/decisions/001-pq-signed-actions.md),
 [threat model](docs/threat-model.md)):
 
 | Who has what | What they can take |
@@ -42,22 +47,30 @@ contract ([decision 001](docs/decisions/001-pq-signed-actions.md),
 | The agent's stolen **ML-DSA-87 key** | at most one budget window (budget mode) or the buffer, until the owner closes |
 | The owner's ML-DSA-87 key | the right to close, if it was kept at opening |
 
-- **The owner** funds the position with a key kept offline and can close it.
-- **The agent** has its own account and ML-DSA-87 key and can spend only
-  within the limit.
-- **Heirs** receive the budget if the agent stops checking in (succession).
+There is no admin, no custodian and no upgrade path. An agent's working key
+can additionally be linked to its account with a chain-enforced spending rule,
+a second limit independent of the vault's
+([decision 009](docs/decisions/009-agent-keys-and-chain-spending-rules.md)).
 
-There is no admin, no custodian and no upgrade path.
+## The three testnet vaults
 
-## How it connects
+Nothing on QoreChain pays a return a contract can collect today
+([decision 006](docs/decisions/006-yield-sources.md)), so the testnet runs the
+same contract three times, each with a different yield source. Every rate is
+simulated by `MockYieldSource`, paid from a reserve the deployer funded.
 
-Three projects, one loop. Each works alone.
+| Vault | Address | Its source pays | What it shows |
+|---|---|---|---|
+| **No yield** | `0x76DAC5461fF361f911e5F39810c9455a6180C180` | nothing | the vault as QoreChain allows today: budget mode spends the deposit at its capped rate |
+| **Simulated 4.29%** | `0x78075C631D41AF72c69e34120d5C33cDC7A66A71` | 4.29% a year, the Aave v3 USDC 30-day mean on Ethereum on 16 November 2026 | the budget with a realistic yield; never a return this vault earns |
+| **Accelerated demo** | `0x496AAa4D585B97c8a26095D97Af4bBfAd473798c` | 15,768% a year | a 20 fUSD budget pays several calls a minute in a demonstration; a test setting, never a return |
 
-| Project | Role | Link |
-|---|---|---|
-| **Perennial** (this repo) | holds the budget and enforces the limit | [app](https://perennial-flax.vercel.app) |
-| **PQ-402** | how one call is paid from it: an HTTP 402 answered with an ML-DSA-87 signed payment; its `perennial` scheme is a Perennial `spend`, relayed by a facilitator, with `ref` binding the HTTP request | [github.com/raldblox/pq-402](https://github.com/raldblox/pq-402), [`@pq402/*` on npm](https://www.npmjs.com/search?q=%40pq402) |
-| **Overwinter** | the inference service: an OpenAI-compatible endpoint that charges per call through PQ-402 | [github.com/raldblox/overwinter](https://github.com/raldblox/overwinter) |
+On other EVM chains a vault can use a real ERC-4626 vault, directly or through
+`ERC4626Source`, or an Aave V3 market through `AaveV3Source`
+([decision 008](docs/decisions/008-yield-sources-on-other-chains.md)); none of
+those is deployed on this testnet. Reference rates (`pnpm rates` in `app/`
+prints current ones): Sky savings 3.80%, Aave v3 USDC 4.29%, Ethena sUSDe
+5.06%; they are paid on other chains, vary, and carry their protocols' risks.
 
 ## How it works
 
@@ -84,14 +97,9 @@ flowchart LR
    vault pays from the buffer (in budget mode, then from the principal, within
    the limit) and emits `Spent(positionId, to, amount, ref)`.
 4. **Compound.** Yield above the position's buffer cap is added to the
-   principal, so it keeps earning and can never be spent. A spend, claim or
-   check-in is proof of life; after the check-in period and a grace period of
-   silence, anyone can trigger succession and the income goes to the heirs.
-
-**Sizing.** For `C` a year of calls at yield rate `r`, deposit
-`P = k · C / r` with a margin `k` (1.15 lets the yield fall 13% before calls
-go unpaid). One 0.002 call an hour is 17.52 a year, so `P` is about 470 at
-Aave v3 USDC's 4.29%, about 530 at sUSDS's 3.80% and about 398 at sUSDe's 5.06%.
+   principal. A spend, claim or check-in is proof of life; after the check-in
+   period and a grace period of silence, anyone can trigger succession and the
+   budget goes to the heirs.
 
 ### Who can do what
 
@@ -113,21 +121,35 @@ a nonce and a deadline ([decision 001](docs/decisions/001-pq-signed-actions.md))
 [decision 004](docs/decisions/004-buffer-cap.md), and what all this protects
 against is in the [threat model](docs/threat-model.md).
 
-## Other uses
+## Try it
 
-The same vault pays people on a schedule: a public good's fixed bill (10 a
-month needs 3,217), a maintainer's stipend (100 a month, 32,168), a parent's
-allowance passing to the children (250 a month, 80,420). Each at Aave v3
-USDC's 4.29% with a 1.15 margin.
+- **The app:** [perennial-flax.vercel.app](https://perennial-flax.vercel.app).
+  Every screen reads the testnet without an account; the
+  [demo position](https://perennial-flax.vercel.app/#/position/demo/1) is a
+  real budget with real spends ([docs/deployments.md](docs/deployments.md#demo-position)).
+- **An agent, end to end:** [docs/agents.md](docs/agents.md) sets up an agent
+  account with its own keys, gives it a budget-mode position, pays inference
+  per call from it, tops up, closes, and shows succession. Every command was
+  run on the testnet and every transaction is listed;
+  `pnpm agent-lifecycle all` in `contracts/` runs it in one go.
+- **The contracts:** `forge test` (quickstart below).
 
 ## Status
 
 | Part | State |
 |---|---|
-| Contracts | One `PerennialVault` with `spend`, the buffer cap, opt-in budget mode and `fund`; 179 tests including fuzz and invariant tests, and optional fork tests against real sources; adapters for ERC-4626 vaults and Aave V3 markets |
-| Testnet | Deployed on `qorechain-diana` as three vaults: no yield, one simulated at the Aave v3 USDC rate of 16 November 2026, and an accelerated demo rate; earlier test deployments are retired |
-| Web app | Fund an agent, budget mode, income paid in, a control panel per position with how long it lasts, an in-page QOR to fUSD swap |
-| Review | Not audited. The first AI review is answered finding by finding in [docs/AUDIT.md](docs/AUDIT.md) |
+| Contracts | One `PerennialVault`: signed `spend`, a per-position buffer cap, opt-in budget mode, `fund`, check-in, heirs and succession, close by the owner. 183 Foundry tests (unit, fuzz, invariant), optional fork tests against Aave and sDAI on Ethereum, and tests against the QoreChain Asset Kit's ERC-4626 vault |
+| Testnet | Three vaults on `qorechain-diana` (above), a demo position with real spends, and a recorded agent lifecycle |
+| Web app | Fund an agent, budget mode, income paid in, QoreX @handles for beneficiaries and heirs, a control panel per position, an in-page QOR to fUSD swap |
+| Review | Not audited by a person. Two-stage AI review below |
+
+QoreChain features used: ML-DSA-87 signatures checked in the contract through
+the `pqcVerify` and `pqcKeyStatus` precompiles; PQC key registration with
+proof of possession; hybrid-signed native transactions; EVM windows scoped to
+the vault and fUSD; the ML-KEM-1024 key registry (for an agent paying
+encrypted inference); the native AMM (QOR to fUSD); fUSD; account-abstraction
+spending rules for agent keys (decision 009); QoreX @handles; the Asset Kit;
+QoreScan.
 
 ### Money in, money out
 
@@ -144,26 +166,49 @@ USDC's 4.29% with a 1.15 margin.
   ([decision 007](docs/decisions/007-budget-mode-and-income.md)). Off, the
   principal is never spent.
 
+## Security review
+
+The vault went through QoreChain's AI contract reviewer (QCAI) in two stages;
+the full record, with the tests behind every answer, is
+[docs/AUDIT.md](docs/AUDIT.md).
+
+| Stage | Source | Result | Report |
+|---|---|---|---|
+| 1, 16 November 2026 | before budget mode | 82/100, 5 findings | [PDF](docs/audits/ai-review-2026-11-16-stage1.pdf) · public link to be added |
+| 2 | the deployed source | to be added | to be added |
+
+Changelog between the stages, and what each stage-1 finding led to:
+
+| Finding (stage 1) | Outcome | Change or reason |
+|---|---|---|
+| High: missing access control on `closeByOwner` | no change | access is the owner's ML-DSA-87 signature, not `msg.sender`; `test_finding1_aCallerWithoutTheOwnersSignatureCannotClose` |
+| Medium: overflow in `_payHeirs` | no change | checked arithmetic reverts; fuzzed exact split, `testFuzz_finding2_heirSharesAddUpExactly` |
+| Medium: front-running `claim` | no change | a claim pays only the beneficiary and works once; `test_finding3_aFrontRunClaimStillPaysOnlyTheBeneficiary` |
+| Low: unbounded loop in `_storeHeirs` | no change | 16 heirs at most; `test_finding4_seventeenHeirsRevertOnSetHeirs` |
+| Info: no ERC-20/721 interface | no change | a position is not a transferable token, by design |
+| (not a finding) | `9fca35f` | budget mode and `fund` added |
+| (not a finding) | `1c787a2` | `harvest` never redeems for zero assets, so a strict source cannot block a close |
+| (not a finding) | `aa9a25d` | signing domain tag without a version label |
+
 ### Testnet addresses
 
 QoreChain testnet (`qorechain-diana`, EVM chain id 9800). Transactions,
 constructor arguments, compiler settings and the retired test deployments
 are in [docs/deployments.md](docs/deployments.md).
 
-| What | Address |
+| Address | What it is |
 |---|---|
-| PerennialVault, no yield (its source pays nothing) | `0x76DAC5461fF361f911e5F39810c9455a6180C180` |
-| PerennialVault, simulated at the Aave v3 USDC rate of 16 November 2026 (4.29%, never a return it earns) | `0x78075C631D41AF72c69e34120d5C33cDC7A66A71` |
-| PerennialVault, accelerated testnet rate (simulated, not a return) | `0x496AAa4D585B97c8a26095D97Af4bBfAd473798c` |
-| Asset (fUSD) | `0x97143B771D34ddb9130b807b135Ae675A5a963CA` |
-| Deployer | `0x825c2e0282c4681fad2f99F514d3D3003cd27432` (`qor1sfwzuq5zc35pltf0n863f57nqq7dyapj6gqlyg`) |
-| Adversarial test account | `0x38FbFDdAE9E53fFb221c0b7E8dF993dC8C75917c` (`qor18ralmkhfu5llkgsupdlgm7vnmjx8tytunvzdqe`) |
+| `0x76DAC5461fF361f911e5F39810c9455a6180C180` | PerennialVault, no yield |
+| `0x78075C631D41AF72c69e34120d5C33cDC7A66A71` | PerennialVault, simulated at 4.29% |
+| `0x496AAa4D585B97c8a26095D97Af4bBfAd473798c` | PerennialVault, accelerated demo; holds the demo position |
+| `0x97143B771D34ddb9130b807b135Ae675A5a963CA` | fUSD, the asset |
+| `0x825c2e0282c4681fad2f99F514d3D3003cd27432` (`qor1sfwzuq5zc35pltf0n863f57nqq7dyapj6gqlyg`) | owner and deployer: deploys, funds positions, closes them |
+| `0xc83B5f64E50C81c2152FE6b1C1908b48F3086bA4` (`qor1eqa47e89pjquy9f0u6curyytfress6ay4lkr8n`) | the agent account of the recorded lifecycle: its own ML-DSA-87 and ML-KEM-1024 keys, beneficiary of its position |
+| `0x38FbFDdAE9E53fFb221c0b7E8dF993dC8C75917c` (`qor18ralmkhfu5llkgsupdlgm7vnmjx8tytunvzdqe`) | adversarial test account: its secp256k1 key is treated as compromised |
 
-The adversarial test account exists to be attacked: treat its secp256k1
-private key as compromised. Its savings sit in position 2 of a retired test
+The adversarial test account's savings sit in position 2 of a retired test
 vault, `0x2fB3057c42fB97964F5a86fD20ecD90969d06593`. With the classical key
-alone nobody can claim, check in, change its heirs or close the position,
-and it keeps no EVM window open, so that key cannot move its QOR either.
+alone nobody can claim, check in, change its heirs or close the position.
 
 `pnpm e2e <vault>` in `contracts/` opens a position on a live vault, checks
 in, claims, spends from the buffer and closes with real ML-DSA-87 signatures,
@@ -172,39 +217,29 @@ spend to a different recipient, are each refused.
 
 ### What is simulated
 
-- **The yield.** Each vault's principal sits in `MockYieldSource`, which pays
-  a fixed rate out of a reserve someone funded. Nothing earns it. Nothing on
-  QoreChain pays a real return a Solidity contract can collect today: AMM
-  fees, staking and staking tiers are native-lane only
-  ([decision 006](docs/decisions/006-yield-sources.md)). The no-yield vault
-  shows the vault as it would run on QoreChain today. On other EVM chains a
-  new vault can use a real ERC-4626 vault directly or through
-  `ERC4626Source`, or an Aave V3 market through `AaveV3Source`
-  ([decision 008](docs/decisions/008-yield-sources-on-other-chains.md));
-  none of these is deployed on this testnet.
-- **The demo rate.** The demo vault's source pays 15,768% a year so that
-  20 fUSD visibly pays about 2.6 calls a minute in a demonstration. It is a
-  test setting, never a return, and is labelled wherever it appears.
+- **The yield**, on every vault (see the three vaults above).
 - **The tokens.** fUSD is the testnet's dollar token. It has no value.
 - **The precompiles, in unit tests only.** Foundry's local EVM does not have
   QoreChain's PQC precompiles, so unit tests run against a mock of them. Real
-  ML-DSA-87 verification happens on the chain, in the end-to-end script and
+  ML-DSA-87 verification happens on the chain, in the end-to-end scripts and
   in the app.
 
 **Where it runs.** The precompiles Perennial depends on are active on the
-QoreChain testnet and not on mainnet. The contracts have not been audited.
+QoreChain testnet and not on mainnet.
 
 ## The web app
 
-`app/` is a static React app. **Fund an agent** sizes a deposit from calls an
-hour and a price per call, sets the buffer cap (a day of calls by default),
-and opens the position. Each position has a **control panel**: health
-(buffer runway at the last day's spending, earning against spending, the
-check-in deadline), a ledger of every harvest, spend, claim, top-up and
-compounding with its transaction and reference, and controls to send a
-signed payment, add principal, claim, change heirs and close. Every screen
-reads without an account. An account panel can swap up to 1 QOR for fUSD in
-the native AMM.
+`app/` is a static React app, live at
+[perennial-flax.vercel.app](https://perennial-flax.vercel.app). **Fund an
+agent** sizes a budget from calls an hour and a price per call, turns budget
+mode on or off, accepts a 0x address or a QoreX @handle for the agent and the
+heirs, and opens the position. Each position has a **control panel**: how
+long it lasts at its spend rate (indefinitely once income covers it, with a
+choice of assumed yield), the budget left in the current window, a ledger of
+every event with its transaction and reference, and controls to pay income
+in, send a signed payment, claim, change heirs and close. Every screen reads
+without an account. An account panel can swap up to 1 QOR for fUSD in the
+native AMM.
 
 **How it signs.** The QoreX wallet cannot yet sign arbitrary bytes or EVM
 transactions for a web page, so the app derives the account's keys from a
@@ -277,13 +312,17 @@ contracts/
   src/PerennialVault.sol          the vault
   src/libraries/PQCAuth.sol       ML-DSA-87 key lookup and signature check
   src/adapters/ERC4626Source.sol  guarded adapter for real ERC-4626 vaults
+  src/adapters/AaveV3Source.sol   adapter for Aave V3 markets
   src/interfaces/                 PQC precompiles, yield source
   src/mocks/MockYieldSource.sol   fixed-rate source for tests and testnet
   script/Deploy.s.sol             deployment
   scripts/window.ts               key registration and EVM window helper
   scripts/e2e.ts                  end-to-end run against a live vault
   scripts/swap.ts                 QOR to fUSD in the native AMM
-  test/                           unit, fuzz and invariant tests
+  scripts/agent-lifecycle.ts      an agent's whole life on the testnet (docs/agents.md)
+  scripts/link-agent.ts           link an agent key with a chain spending rule
+  test/                           unit, fuzz and invariant tests; test/fork/ optional
+  lib/qorechain-asset-kit/        the Asset Kit, for its ERC-4626 vault tests
 app/
   src/config.ts                   chain, endpoints, vaults and addresses
   src/copy.ts                     every word the app shows
@@ -296,7 +335,9 @@ docs/
   qorechain-notes.md              what the protocol relies on from the chain
   deployments.md                  addresses, transactions, compiler settings
   threat-model.md                 assets, actors, trust, limitations
-  AUDIT.md                        AI contract review record
+  AUDIT.md                        AI contract review record, both stages
+  agents.md                       setting up an agent end to end
+  cbom/                           QoreScan cryptographic bill of materials
   decisions/                      design decisions
 ```
 
@@ -308,6 +349,15 @@ docs/
   [`create-qorechain-dapp`](https://www.npmjs.com/package/create-qorechain-dapp),
   whose Foundry template the contracts tooling and `scripts/window.ts` start
   from, and whose `viem-wagmi` template the app starts from (Apache-2.0).
+- QoreChain kits (Apache-2.0): the
+  [Asset Kit](https://github.com/qorechain/qorechain-asset-kit) (its
+  ERC-4626 vault and hybrid-holder guard, in tests),
+  [QoreScan](https://github.com/qorechain/qorescan) (`@qorechain/qorescan`,
+  the CBOM), `@qorechain/handles` (QoreX @handles) and `@qorechain/qoreseal`
+  (ML-KEM-1024 keys, in the agent scripts).
+- [PQ-402](https://github.com/raldblox/pq-402) (MIT): `@pq402/client`,
+  `@pq402/core` and `@pq402/scheme-qorechain`, used by the agent lifecycle
+  script to pay per call.
 - [OpenZeppelin Contracts](https://github.com/OpenZeppelin/openzeppelin-contracts) (MIT),
   including the ERC-4626 implementation the adapter is tested against.
 - [Foundry](https://github.com/foundry-rs/foundry) and
@@ -325,6 +375,22 @@ docs/
 - Fonts, bundled through [Fontsource](https://fontsource.org):
   [Source Serif 4](https://github.com/adobe-fonts/source-serif) and
   [IBM Plex](https://github.com/IBM/plex) (SIL Open Font License 1.1).
+
+## Works with
+
+Perennial is complete on its own. Two separate projects can use it:
+
+- **A pay-per-request protocol for APIs.** An agent answers an HTTP 402 with
+  an ML-DSA-87 signed payment; one of its payment schemes is a Perennial
+  `spend` from the agent's position. That protocol is
+  [PQ-402](https://github.com/raldblox/pq-402).
+- **An inference service an agent pays per call.** An OpenAI-compatible
+  endpoint that charges each call through that protocol, so an agent can buy
+  inference from its Perennial budget. That service is
+  [Overwinter](https://github.com/raldblox/overwinter); the recorded agent
+  lifecycle in [docs/agents.md](docs/agents.md) uses it.
+
+How this repository was written: [AI_USAGE.md](AI_USAGE.md).
 
 ## License
 
