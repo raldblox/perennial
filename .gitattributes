@@ -4,3 +4,6 @@
 *.jpg binary
 *.woff binary
 *.woff2 binary
+
+# Solidity stays LF on every machine, so forge fmt agrees on Windows too.
+*.sol text eol=lf
